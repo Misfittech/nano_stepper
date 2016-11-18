@@ -37,6 +37,8 @@ void setup() {
   int to=20;
   Serial.begin(460800);
   Serial5.begin(460800);
+  SysLogInit(&Serial5,LOG_DEBUG); //use SWO for the sysloging
+  LOG("Power up!");
   while (!Serial) 
   {
     to--;
@@ -47,9 +49,10 @@ void setup() {
     delay(500);
    };     //wait for serial
 
-  SysLogInit(&Serial5,LOG_DEBUG); //use SWO for the sysloging
-  
+  //SysLogInit(&Serial5,LOG_DEBUG); //use SWO for the sysloging
+  LOG("SErial up!");
   stepperCtrl.begin(); //start controller before accepting step inputs
+  LOG("command init!");
   commandsInit(); //setup command handler system
   
   attachInterrupt(digitalPinToInterrupt(PIN_STEP_INPUT), stepInput, RISING);
@@ -62,6 +65,6 @@ void loop() {
 
    commandsProcess(); //handle commands
    //stepperCtrl.process();
-   YELLOW_LED(stepperCtrl.process()); //handle the control loop
+   YELLOW_LED(stepperCtrl.process2()); //handle the control loop
    return;
 }

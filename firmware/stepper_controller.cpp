@@ -313,6 +313,7 @@ int StepperCtrl::begin(void)
 	degreesPerFullStep=0;
 	currentLocation=0;
 	numSteps=0;
+	currentLimit=false;
 
 	display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 
@@ -413,12 +414,12 @@ void StepperCtrl::requestStep(int dir, uint16_t steps)
 		numSteps+=steps;
 	}
 
-//	if (false == enableFeedback)
-//	{
-//		int32_t s;
-//		s=(steps*A4954_NUM_MICROSTEPS)/numMicroSteps;
-//		stepperDriver.move(s,NVM->SystemParams.currentMa);
-//	}
+	//	if (false == enableFeedback)
+	//	{
+	//		int32_t s;
+	//		s=(steps*A4954_NUM_MICROSTEPS)/numMicroSteps;
+	//		stepperDriver.move(s,NVM->SystemParams.currentMa);
+	//	}
 
 }
 
@@ -452,11 +453,14 @@ void StepperCtrl::move(int dir, uint16_t steps)
 			ret+=n;
 		}
 		n=(int32_t)(ret);
-		//LOG("s is %d %d",n,steps);
+		LOG("s is %d %d",n,steps);
 		stepperDriver.move(n,NVM->SystemParams.currentMa);
 	}
+	currentLimit=false;
 
 }
+
+
 
 int64_t StepperCtrl::getDesiredLocation(void)
 {
@@ -539,6 +543,7 @@ void StepperCtrl::moveToAngle(int32_t a, uint32_t ma)
 	a=DIVIDE_WITH_ROUND( (a*fullStepsPerRotation*A4954_NUM_MICROSTEPS), ANGLE_STEPS);
 	//LOG("move %d %d",a,ma);
 	stepperDriver.move(a,ma);
+	currentLimit=false;
 }
 
 
@@ -579,7 +584,7 @@ bool StepperCtrl::process(void)
 	static int32_t maxError=0;
 	static int32_t lastError=0;
 	static int32_t Iterm=0;
-	static bool currentLimit=false;
+
 
 
 	currentLocation=getCurrentLocation();
@@ -606,17 +611,17 @@ bool StepperCtrl::process(void)
 		//error is in units of degrees when 360 degrees == 65536
 		error=measureError(); //error is currentPos-desiredPos
 
-		Iterm+=(pKi * error)/2;
+		Iterm+=(pKi * error);
 
 		//Over the long term we do not want error
 		// to be much more than our threshold
-		if (Iterm> (threshold*1.5) )
+		if (Iterm> (threshold*10.5) )
 		{
-			Iterm=(threshold*1.5) ;
+			Iterm=(threshold*10.5) ;
 		}
-		if (Iterm<-(threshold*1.5)  )
+		if (Iterm<-(threshold*10.5)  )
 		{
-			Iterm=-(threshold*1.5) ;
+			Iterm=-(threshold*10.5) ;
 		}
 
 		u=((pKp * error) + Iterm - (pKd *(error-lastError)));
@@ -629,50 +634,27 @@ bool StepperCtrl::process(void)
 			U=NVM->SystemParams.currentMa;
 		}
 
+		int x=327;
+
 		//when error is positive we need to move reverse direction
 		if (u>0)
 		{
-			y=y-327;//ANGLE_FROM_DEGREES(1.8);
+			y=y-x;//ANGLE_FROM_DEGREES(1.8);
 		}else
 		{
-			y=y+327;//ANGLE_FROM_DEGREES(1.8);
+			y=y+x;//ANGLE_FROM_DEGREES(1.8);
 
 		}
-		moveToAngle(y,U);
-		calls++;
 
-		//LOG("error is %d steps %d u %d",error,y, u);
-		//move(y,u);
-		//
-		//
-		//		if (u>threshold)
-		//		{
-		//			//if ((micros()-lastForward)>1000)
-		//			{
-		//				//LOG("F %d, %d",u,error );
-		//				step(STEPPER_FORWARD,1);//(abs(u)/threshold));
-		//				lastReverse=micros();
-		//				currentLimit=false;
-		//			}
-		//		}else if (u<-threshold)
-		//		{
-		//			//if ((micros()-lastReverse)>1000)
-		//			{
-		//				//LOG("R %d %d",u, error);
-		//				step(STEPPER_REVERSE,1);//abs(u)/threshold);
-		//				lastForward=micros();
-		//				currentLimit=false;
-		//			}
-		//		} else if (currentLimit == false)
-		//		{
-		//			stepperDriver.limitCurrent(80);
-		//			currentLimit=true;
-		//		}
+		moveToAngle(y,U);
+
+
+		calls++;
 
 		if ((millis()-t0)>1000)
 		{
 			//LOG("Loc %d, %d %d",x,(uint32_t)currentLocation, (uint32_t)getDesiredLocation());
-			LOG("Error %d, u %d, steps %d %d, calls %d",error,u,y,(int32_t)currentLocation,calls);
+			LOG("Error %d, u %d, y %d %d, calls %d, U %d",error,u,y,(int32_t)currentLocation,calls, U);
 			t0=millis();
 			calls=0;
 		}
@@ -680,25 +662,110 @@ bool StepperCtrl::process(void)
 		lastError=error;
 	}else
 	{  //feedback system is not enabled
-		if (stepperDriver.microsSinceStep()>200 && false ==currentLimit)
+		if (stepperDriver.microsSinceStep()>200)
 		{
-			stepperDriver.limitCurrent(50);
-			currentLimit=true;
+			if (false == currentLimit)
+			{
+				//stepperDriver.limitCurrent(99);
+				currentLimit=true;
+				LOG("current Limiting");
+			}
 		}
-
 	}
 
 	if (abs(lastError)>(NVM->SystemParams.errorLimit))
 	{
-
-		//LOG("Step error %d",lastError);
 		return 1;
 	}
 	return 0;
 }
 
+//this was written to do the PID loop not modeling a DC servo
+// but rather using features of stepper motor.
+bool StepperCtrl::process2(void)
+{
+	static uint32_t t0=0;
+	static uint32_t calls=0;
+
+	static int32_t maxError=0;
+	static int32_t lastError=0;
+	static int32_t Iterm=0;
+	int32_t y;
+
+	//estimate our current location based on the encoder
+	y=getCurrentLocation();
+
+	if (enableFeedback)
+	{
+		int32_t error,u;
+		int32_t ma;
+
+		int32_t pKp=NVM->PIDparams.Kp;
+		int32_t pKi=NVM->PIDparams.Ki;
+		int32_t pKd=NVM->PIDparams.Kd;
+		int32_t threshold=NVM->PIDparams.Threshold;
+
+		//error is in units of degrees when 360 degrees == 65536
+		error=-measureError(); //error is currentPos-desiredPos
+
+		Iterm+=(pKi*error);
+		Iterm=(127*Iterm)/128;
+
+		//Over the long term we do not want error
+		// to be much more than one full step
+		if (Iterm> (threshold*327/2) )
+		{
+			Iterm=(threshold*327/2) ;
+		}
+		if (Iterm<-(threshold*327/2)  )
+		{
+			Iterm=-(threshold*327/2) ;
+		}
+
+		u=((pKp * error) + Iterm - (pKd *(error-lastError)));
+
+		u=u/threshold;
 
 
+		//limit error to full step
+		if (u>327)
+		{
+			u=327;
+		}
+		if (u<-327)
+		{
+			u=-327;
+		}
+
+		ma=abs(u)/327*(NVM->SystemParams.currentMa-NVM->SystemParams.currentHoldMa) + NVM->SystemParams.currentHoldMa;
+
+		if (ma>NVM->SystemParams.currentMa)
+		{
+			ma=NVM->SystemParams.currentMa;
+		}
+
+
+		y=y+u;
+		moveToAngle(y,ma);
+		calls++;
+		lastError=error;
+
+		if ((millis()-t0)>1000)
+		{
+			//LOG("Loc %d, %d %d",x,(uint32_t)currentLocation, (uint32_t)getDesiredLocation());
+			LOG("Error %d, u %d, y %d, loc %d, calls %d, ma %d",error,u,y,(int32_t)currentLocation,calls, ma);
+			t0=millis();
+			stepperDriver.limitCurrent(99);
+			calls=0;
+		}
+	}
+
+	if (abs(lastError)>(NVM->SystemParams.errorLimit))
+	{
+		return 1;
+	}
+	return 0;
+}
 
 void StepperCtrl::testRinging(void)
 {
@@ -717,6 +784,7 @@ void StepperCtrl::testRinging(void)
 		Serial.println(c);
 		steps+=A4954_NUM_MICROSTEPS;
 		stepperDriver.move(steps,NVM->SystemParams.currentMa);
+		currentLimit=false;
 		measure();
 	}
 	numMicroSteps=microSteps;

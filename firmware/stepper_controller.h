@@ -18,6 +18,7 @@ class StepperCtrl
     AS5047D encoder;
     A4954 stepperDriver;
     Adafruit_SSD1306 display;
+    bool currentLimit;
 
     int32_t numMicroSteps=16;
     int32_t fullStepsPerRotation=200;
@@ -63,6 +64,7 @@ class StepperCtrl
 
     int begin(void);
     bool process(void);
+    bool process2(void);
     void requestStep(int dir, uint16_t steps); //requests a step, if feedback controller is off motor does not move
 
 

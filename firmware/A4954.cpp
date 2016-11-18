@@ -178,6 +178,7 @@ void A4954::begin()
 
 void A4954::limitCurrent(uint8_t percent)
 {
+	WARNING("current limit %d",percent);
 	enableTCC0(percent);
 	if (pinState & 0x01)
 	{
@@ -308,6 +309,12 @@ int16_t cosine(uint16_t angle)
 
 
 //this is precise move and modulo of A4954_NUM_MICROSTEPS is a full step.
+// stepAngle is in A4954_NUM_MICROSTEPS units..
+// The A4954 has no idea where the motor is, so the calling function has to
+// to tell the A4954 what phase to drive motor coils.
+// A4954_NUM_MICROSTEPS is 256 by default so stepAngle of 1024 is 360 degrees
+// Note you can only move up to +/-A4954_NUM_MICROSTEPS from where you
+// currently are.
 int32_t A4954::move(int32_t stepAngle, uint32_t mA)
 {
 	uint16_t angle;
