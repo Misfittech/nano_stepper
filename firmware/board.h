@@ -3,9 +3,20 @@
 
 #include <Arduino.h>
 
+#define NZS_FAST_CAL // define this to use 32k of flash for fast calibration table
+#define NZS_FAST_SINE //uses 2048 extra bytes to implement faster sine tables
 
+/* does not work at moment
+//#define NZS_AS5047_PIPELINE //does a pipeline read of encoder, which is slightly faster
+ * DOES NOT WORK
+ */
+
+#define NZS_CONTROL_LOOP_HZ (4000) //update rate of control loop, this should be limited to less than 5k
 //TCC0 is used for DAC PWM to the A4954
 //TCC1 can be used as PWM for the input pins on the A4954
+
+#define VERSION "FW: 0.1"
+
 
 #define PIN_STEP_INPUT  (0)
 #define PIN_DIR_INPUT   (1)
@@ -24,6 +35,7 @@
 
 #define PIN_SW1		(19)//analogInputToDigitalPin(PIN_A5))
 #define PIN_SW3		(14)//analogInputToDigitalPin(PIN_A0))
+#define PIN_SW4		(15)//analogInputToDigitalPin(PIN_A1))
 
 #define PIN_MOSI        (23)
 #define PIN_SCK         (24)
@@ -42,6 +54,7 @@ static void boardSetupPins(void)
 	//setup switch pins
 	pinMode(PIN_SW1, INPUT_PULLUP);
 	pinMode(PIN_SW3, INPUT_PULLUP);
+	pinMode(PIN_SW4, INPUT_PULLUP);
 
 	pinMode(PIN_STEP_INPUT, INPUT_PULLDOWN);
 	pinMode(PIN_DIR_INPUT, INPUT_PULLDOWN);
@@ -76,7 +89,7 @@ static void boardSetupPins(void)
 	digitalWrite(PIN_A4954_VREF12,LOW);
 	digitalWrite(PIN_A4954_VREF34,LOW);
 	pinMode(PIN_A4954_VREF34, OUTPUT);
-    pinMode(PIN_A4954_VREF12, OUTPUT);
+	pinMode(PIN_A4954_VREF12, OUTPUT);
 
 
 

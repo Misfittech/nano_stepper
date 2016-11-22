@@ -61,10 +61,34 @@ void setup() {
 }
 
 
+void TC5_Handler()
+{
+if (TC5->COUNT16.INTFLAG.bit.OVF == 1)
+{
+//	static int i=0;
+//	YELLOW_LED(i);
+//	i=(i+1) & 0x01;
+	
+	YELLOW_LED(stepperCtrl.process2()); //handle the control loop
+	TC5->COUNT16.INTFLAG.bit.OVF = 1;    // writing a one clears the flag ovf flag
+}
+
+}
+
 void loop() {
+	static uint32_t t0=0;
 
    commandsProcess(); //handle commands
-   //stepperCtrl.process();
-   YELLOW_LED(stepperCtrl.process2()); //handle the control loop
+
+   	if ((millis()-t0)>1000)
+		{
+			//LOG("Loc %d, %d %d",x,(uint32_t)currentLocation, (uint32_t)getDesiredLocation());
+			//LOG("Error %d, Iterm %d, y %d, loc %d, calls %d, ma %d",error,Iterm,y,(int32_t)currentLocation,calls, ma);
+			t0=millis();
+			//stepperDriver.limitCurrent(99);
+			stepperCtrl.UpdateLcd();
+			//calls=0;
+		}
+   
    return;
 }

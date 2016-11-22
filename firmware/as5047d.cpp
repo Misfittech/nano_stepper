@@ -56,7 +56,7 @@ boolean AS5047D::begin(int csPin)
 
 	pinMode(PIN_MISO,INPUT);
 
-	SPISettings settingsA(500000, MSBFIRST, SPI_MODE1);             ///400000, MSBFIRST, SPI_MODE1);
+	SPISettings settingsA(1000000, MSBFIRST, SPI_MODE1);             ///400000, MSBFIRST, SPI_MODE1);
 	chipSelectPin=csPin;
 
 	LOG("csPin is %d",csPin);
@@ -148,6 +148,7 @@ int16_t AS5047D::readEncoderAnglePipeLineRead(void)
 	digitalWrite(chipSelectPin, LOW);
 	data=SPI.transfer16(0xFFFF); //to speed things up we know the parity and address for the read
 	data=data & 0x3FFF; //mask off the error and parity bits
+	//digitalWrite(chipSelectPin, HIGH);
 	//TODO we really should check for errors and return a negative result or something
 	return data;
 }

@@ -50,8 +50,28 @@ void CalibrationTable::printCalTable(void)
 	Serial.print("\n\r");
 }
 
+Angle CalibrationTable::fastReverseLookup(Angle encoderAngle)
+{
+#ifdef NZS_FAST_CAL
+	//assume calibration is good
+	if (fastCalVaild)
+	{
+		uint16_t x;
+		x=((uint16_t)encoderAngle)/4;  //we only have 16384 values in table
+
+		return (Angle)NVM->FastCal.angle[x];
+	}else
+	{
+		return reverseLookup(encoderAngle);
+	}
+#else
+	return reverseLookup(encoderAngle)
+#endif
+}
+
 Angle CalibrationTable::reverseLookup(Angle encoderAngle)
 {
+
 	int32_t i=0;
 	int32_t a1,a2;
 	int32_t x;
@@ -59,6 +79,8 @@ Angle CalibrationTable::reverseLookup(Angle encoderAngle)
 	int32_t min,max;
 	min=(uint16_t)table[0].value;
 	max=min;
+
+
 
 	for (i=0; i<CALIBRATION_TABLE_SIZE; i++)
 	{
@@ -119,6 +141,7 @@ Angle CalibrationTable::reverseLookup(Angle encoderAngle)
 			//LOG("%d,%d",(i*CALIBRATION_MAX)/CALIBRATION_TABLE_SIZE,((i+2)*CALIBRATION_MAX)/CALIBRATION_TABLE_SIZE);
 
 			y=interp(a1, DIVIDE_WITH_ROUND((i*CALIBRATION_STEPS),CALIBRATION_TABLE_SIZE), a2, DIVIDE_WITH_ROUND( ((i+1)*CALIBRATION_STEPS),CALIBRATION_TABLE_SIZE), x);
+
 			return y;
 		}
 		i++;
@@ -143,10 +166,13 @@ void CalibrationTable::saveToFlash(void)
 
 	LOG("Writting Calbiration to Flash");
 	nvmWriteCalTable(&data,sizeof(data));
+
 	memset(&data,0,sizeof(data));
 	memcpy(&data, &NVM->CalibrationTable,sizeof(data));
+	createFastCal();
 
 	LOG("after writting status is %d",data.status);
+	loadFromFlash();
 
 }
 
@@ -169,6 +195,73 @@ bool CalibrationTable::flashGood(void)
 	return NVM->CalibrationTable.status;
 }
 
+
+void CalibrationTable::createFastCal(void)
+{
+#ifdef NZS_FAST_CAL
+	int32_t i;
+	uint16_t cs=0;
+	uint16_t data[256];
+	int32_t j;
+	j=0;
+	cs=0;
+	LOG("setting fast calibration");
+	for (i=0; i<16384; i++)
+	{
+
+		uint16_t x;
+		x=reverseLookup(i*4);
+		data[j]=x;
+		j++;
+		if (j>=256)
+		{
+			flashWrite(&NVM->FastCal.angle[i-255],data,256*sizeof(uint16_t));
+			//LOG("Wrote fastcal at index %d-%d", i-255, i);
+			j=0;
+		}
+		cs+=x;
+	}
+	//update the checksum
+	flashWrite(&NVM->FastCal.checkSum,&cs,sizeof(uint16_t));
+	fastCalVaild=true;
+
+	//this is a quick test
+	/*
+			for (i=0; i<16384; i++)
+			{
+				LOG("fast Cal %d,%d,%d",i,NVM->FastCal.angle[i],(uint32_t)reverseLookup(i*4));
+			}
+	 */
+#endif
+}
+void CalibrationTable::updateFastCal(void)
+{
+#ifdef NZS_FAST_CAL
+	int32_t i;
+	uint16_t cs=0;
+	uint16_t data[256];
+	int32_t j;
+	bool NonZero=false;
+	for (i=0; i<16384; i++)
+	{
+		cs+=NVM->FastCal.angle[i];
+		if (cs != 0)
+		{
+			NonZero=true;
+		}
+	}
+	if (cs!=NVM->FastCal.checkSum || NonZero==false)
+	{
+		createFastCal();
+	}
+	else
+	{
+		LOG("fast cal is valid");
+		fastCalVaild=true;
+	}
+#endif
+}
+
 void CalibrationTable::init(void)
 {
 	int i;
@@ -176,6 +269,7 @@ void CalibrationTable::init(void)
 	if (true == flashGood())
 	{
 		loadFromFlash();
+		updateFastCal();
 	}else
 	{
 		for (i=0; i<CALIBRATION_TABLE_SIZE; i++)
@@ -224,8 +318,8 @@ void CalibrationTable::updateTable(Angle actualAngle, Angle encoderValue);
 			//the two span a set calibation table point.
 			uint16_t newValue;
 			newValue=interp(lastAngle, lastEncoderValue, actualAngle, encoderValue, getTableIndex(actualAngle)*(CALIBRATION_STEPS/CALIBRATION_TABLE_SIZE))
-    				  //this new value is our best guess as to the correct calibration value.
-    				  updateTableValue(getTableIndex(actualAngle),newValue);
+    						  //this new value is our best guess as to the correct calibration value.
+    						  updateTableValue(getTableIndex(actualAngle),newValue);
 		} else
 		{
 			//we should calibate the table value for the point the closest
@@ -296,9 +390,9 @@ int CalibrationTable::getValue(Angle actualAngle, CalData_t *ptrData)
 	angleHigh=(indexHigh*CALIBRATION_STEPS)/CALIBRATION_TABLE_SIZE;
 
 	if (indexHigh>=CALIBRATION_TABLE_SIZE)
-		{
-			indexHigh -= CALIBRATION_TABLE_SIZE;
-		}
+	{
+		indexHigh -= CALIBRATION_TABLE_SIZE;
+	}
 
 	//LOG("AngleLow %d, AngleHigh %d",angleLow,angleHigh);
 	//LOG("TableLow %u, TableHigh %d",(uint16_t)table[indexLow].value,(uint16_t)table[indexHigh].value);

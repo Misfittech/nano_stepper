@@ -14,7 +14,7 @@
 class StepperCtrl 
 {
   private:
-	bool enableFeedback; //true if we are using PID control algorithm
+	volatile bool enableFeedback; //true if we are using PID control algorithm
     AS5047D encoder;
     A4954 stepperDriver;
     Adafruit_SSD1306 display;
@@ -24,10 +24,10 @@ class StepperCtrl
     int32_t fullStepsPerRotation=200;
 
 
-    int64_t numSteps; //this is the number of steps we have taken from our start angle
+    volatile int64_t numSteps; //this is the number of steps we have taken from our start angle
 
 
-    int32_t currentLocation; //estimate of the current location from encoder feedback
+    volatile int32_t currentLocation; //estimate of the current location from encoder feedback
     // the current location lower 16 bits is angle (0-360 degrees in 65536 steps) while upper
     // bits is the number of full rotations.
 
@@ -51,8 +51,14 @@ class StepperCtrl
     uint32_t measureMaxCalibrationError(void);
     void setLocationFromEncoder(void);
     int64_t getDesiredLocation(void);
-    void UpdateLcd(void);
+
     void  motorReset(void);
+    void updateStep(int dir, uint16_t steps);
+
+    //these are LCD functions
+    void showSplash(void);
+    void menu(void);
+    void showCalError(void);
   public:
 
     CalibrationTable calTable;
@@ -83,7 +89,7 @@ class StepperCtrl
     int32_t getCurrentLocation(void);
 
     void move(int dir, uint16_t steps); //forces motor to move even if feedback controller is turned off.
-
+    void UpdateLcd(void); //this can be called from outside class
 };
 
 #endif //__STEPPER_CONTROLLER_H__

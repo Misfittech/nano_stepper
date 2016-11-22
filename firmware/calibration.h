@@ -39,9 +39,12 @@ class CalibrationTable
   private:
     CalData_t table[CALIBRATION_TABLE_SIZE];
 
+    bool fastCalVaild=false;
     void loadFromFlash(void);
     bool flashGood(void); //returns true if the flash copy of calibration is valid
 
+    void updateFastCal(void);
+    void createFastCal(void);
   public:
     void init(void);
     void saveToFlash(void); //saves the calibration to flash
@@ -53,7 +56,7 @@ class CalibrationTable
     Angle reverseLookup(Angle encoderAngle); //this turns encoder angle into real angle
     void printCalTable(void);
 
-
+    Angle fastReverseLookup(Angle encoderAngle);
 };
 
 
