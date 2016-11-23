@@ -270,6 +270,13 @@ Angle StepperCtrl::maxCalibrationError(void)
 
 		steps+=A4954_NUM_MICROSTEPS;
 		stepperDriver.move(steps,NVM->SystemParams.currentMa);
+		if (400==fullStepsPerRotation)
+		{
+			updateStep(0,1);
+			steps=steps+A4954_NUM_MICROSTEPS;
+			stepperDriver.move(steps,NVM->SystemParams.currentMa);
+		}
+
 
 		if (abs(dist)>maxError)
 		{
@@ -331,9 +338,16 @@ bool StepperCtrl::calibrateEncoder(void)
 		LOG("Previous cal distance %d, %d, mean %d, cal %d",j, cal-Angle((uint16_t)mean), mean, (uint16_t)cal);
 
 		calTable.updateTableValue(j,mean);
+
 		updateStep(0,1);
 		steps=steps+A4954_NUM_MICROSTEPS;
 		stepperDriver.move(steps,NVM->SystemParams.currentMa);
+		if (400==fullStepsPerRotation)
+		{
+			updateStep(0,1);
+			steps=steps+A4954_NUM_MICROSTEPS;
+			stepperDriver.move(steps,NVM->SystemParams.currentMa);
+		}
 
 		j++;
 		if (j>=CALIBRATION_TABLE_SIZE)
@@ -387,9 +401,14 @@ void StepperCtrl::UpdateLcd(void)
 
 	d=(int32_t)(Angle(Angle(lastAngle)-Angle(deg)));
 
-	if (d>ANGLE_STEPS/2)
+	while (d>ANGLE_STEPS/2)
 	{
 		d=ANGLE_STEPS-d;
+	}
+
+	while (d<-ANGLE_STEPS/2)
+	{
+		d=ANGLE_STEPS+d;
 	}
 
 	x=(d*(60*1000UL))/(y * ANGLE_STEPS);
@@ -420,7 +439,7 @@ void StepperCtrl::UpdateLcd(void)
 
 	//LOG("error is %d",err);
 
-	err=(err*360 *100)/(int32_t)ANGLE_STEPS;
+	err=(err*360*100)/(int32_t)ANGLE_STEPS;
 	x=err/100;
 	y=abs(err-x*100);
 
@@ -973,15 +992,15 @@ bool StepperCtrl::process(void)
 			U=NVM->SystemParams.currentMa;
 		}
 
-		int x=327;
+		int x=ANGLE_STEPS/fullStepsPerRotation;
 
 		//when error is positive we need to move reverse direction
 		if (u>0)
 		{
-			y=y-x;//ANGLE_FROM_DEGREES(1.8);
+			y=y-x;
 		}else
 		{
-			y=y+x;//ANGLE_FROM_DEGREES(1.8);
+			y=y+x;
 
 		}
 
@@ -1029,6 +1048,9 @@ bool StepperCtrl::process2(void)
 	static int32_t maxError=0;
 	static int32_t lastError=0;
 	static int32_t Iterm=0;
+
+	int32_t fullStep=ANGLE_STEPS/fullStepsPerRotation;
+
 	int32_t y;
 
 	//estimate our current location based on the encoder
@@ -1052,13 +1074,13 @@ bool StepperCtrl::process2(void)
 
 		//Over the long term we do not want error
 		// to be much more than one full step
-		if (Iterm> (threshold*327/2) )
+		if (Iterm> (threshold*fullStep/2) )
 		{
-			Iterm=(threshold*327/2) ;
+			Iterm=(threshold*fullStep/2) ;
 		}
-		if (Iterm<-(threshold*327/2)  )
+		if (Iterm<-(threshold*fullStep/2)  )
 		{
-			Iterm=-(threshold*327/2) ;
+			Iterm=-(threshold*fullStep/2) ;
 		}
 
 		u=((pKp * error) + Iterm - (pKd *(error-lastError)));
@@ -1067,16 +1089,16 @@ bool StepperCtrl::process2(void)
 
 
 		//limit error to full step
-		if (u>327)
+		if (u>fullStep)
 		{
-			u=327;
+			u=fullStep;
 		}
-		if (u<-327)
+		if (u<-fullStep)
 		{
-			u=-327;
+			u=-fullStep;
 		}
 
-		ma=abs(u)/327*(NVM->SystemParams.currentMa-NVM->SystemParams.currentHoldMa) + NVM->SystemParams.currentHoldMa;
+		ma=abs(u)/fullStep*(NVM->SystemParams.currentMa-NVM->SystemParams.currentHoldMa) + NVM->SystemParams.currentHoldMa;
 
 		if (ma>NVM->SystemParams.currentMa)
 		{

@@ -15,7 +15,7 @@
 //TCC0 is used for DAC PWM to the A4954
 //TCC1 can be used as PWM for the input pins on the A4954
 
-#define VERSION "FW: 0.1"
+#define VERSION "FW: 0.02"
 
 
 #define PIN_STEP_INPUT  (0)
