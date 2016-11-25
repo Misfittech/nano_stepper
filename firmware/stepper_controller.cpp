@@ -641,7 +641,7 @@ int StepperCtrl::begin(void)
 	int i;
 	int32_t x;
 
-	enableFeedback=false;
+	enableFeedback=true;
 	forwardWiring=true; //assume we are forward wiring to start with
 
 	degreesPerFullStep=0;
@@ -708,6 +708,7 @@ int StepperCtrl::begin(void)
 	//turn microstepping on
 	changeMicrostep(16);
 	motorReset();
+	enableFeedback=true;
 	setupTCInterrupts();
 	enableTCInterrupts();
 
@@ -1116,6 +1117,30 @@ bool StepperCtrl::process2(void)
 		return 1;
 	}
 	return 0;
+}
+
+
+void StepperCtrl::enable(bool enable)
+{
+	bool state=TC5_ISR_Enabled;
+	disableTCInterrupts();
+	uint16_t microSteps=numMicroSteps;
+	bool feedback=enableFeedback;
+
+	enabled=enable;
+	stepperDriver.enable(enabled); //enable or disable the stepper driver as needed
+
+	if (enabled==false && enable==true) //if we are enabling previous disabled motor
+	{
+		enableFeedback=false;
+		numMicroSteps=1;
+		LOG("reset motor");
+		motorReset();
+	}
+
+	numMicroSteps=microSteps;
+	enableFeedback=feedback;
+	if (state) enableTCInterrupts();
 }
 
 void StepperCtrl::testRinging(void)

@@ -19,6 +19,7 @@ class StepperCtrl
     A4954 stepperDriver;
     Adafruit_SSD1306 display;
     bool currentLimit;
+    volatile bool enabled;
 
     int32_t numMicroSteps=16;
     int32_t fullStepsPerRotation=200;
@@ -90,6 +91,7 @@ class StepperCtrl
 
     void move(int dir, uint16_t steps); //forces motor to move even if feedback controller is turned off.
     void UpdateLcd(void); //this can be called from outside class
+    void enable(bool enable);
 };
 
 #endif //__STEPPER_CONTROLLER_H__

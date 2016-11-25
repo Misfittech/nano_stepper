@@ -6,22 +6,31 @@
 #define NZS_FAST_CAL // define this to use 32k of flash for fast calibration table
 #define NZS_FAST_SINE //uses 2048 extra bytes to implement faster sine tables
 
-/* does not work at moment
+/* DOES NOT WORK at moment
 //#define NZS_AS5047_PIPELINE //does a pipeline read of encoder, which is slightly faster
- * DOES NOT WORK
+ * DOES NOT WORK, not sure why yet, but might be SPI bus remains enabled?
  */
 
 #define NZS_CONTROL_LOOP_HZ (4000) //update rate of control loop, this should be limited to less than 5k
+
+#define VERSION "FW: 0.03" //this is what prints on LCD during splash screen
+
+/* change log
+ *   0.02 added fixes for 0.9 degree motor
+ *   0.03 added code for using error pin as an enable pin, enable feedback by default
+ */
+
+//#define USE_ENABLE_PIN  //define this to use the error pin as enable
+
+// ******** TIMER USAGE ************
 //TCC0 is used for DAC PWM to the A4954
 //TCC1 can be used as PWM for the input pins on the A4954
-
-#define VERSION "FW: 0.02"
+//TC5 is use for timing the control loop
 
 
 #define PIN_STEP_INPUT  (0)
 #define PIN_DIR_INPUT   (1)
-#define PIN_ERROR_INPUT (10)
-#define PIN_ERROR_OUTPUT   (12)
+#define PIN_ERROR		(10)
 
 #define PIN_AS5047D_CS  (16)//analogInputToDigitalPin(PIN_A2))
 #define PIN_AS5047D_PWR	(11) //pull low to power on AS5047D
@@ -58,8 +67,11 @@ static void boardSetupPins(void)
 
 	pinMode(PIN_STEP_INPUT, INPUT_PULLDOWN);
 	pinMode(PIN_DIR_INPUT, INPUT_PULLDOWN);
-	pinMode(PIN_ERROR_INPUT, INPUT_PULLDOWN);
-	pinMode(PIN_ERROR_OUTPUT, OUTPUT);
+#ifdef USE_ENABLE_PIN
+	pinMode(PIN_ERROR, INPUT_PULLDOWN);
+#else
+	pinMode(PIN_ERROR, OUTPUT);
+#endif
 
 	pinMode(PIN_AS5047D_CS,OUTPUT);
 	digitalWrite(PIN_AS5047D_CS,LOW); //pull CS LOW by default (chip powered off)

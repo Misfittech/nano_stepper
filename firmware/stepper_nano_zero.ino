@@ -15,18 +15,18 @@ static void stepInput(void)
   dir = digitalRead(PIN_DIR_INPUT);
 
   stepperCtrl.requestStep(dir,1);
-/*
-  if (dir==0)
-  {
-  stepperCtrl.step(STEPPER_FORWARD);
-  }else
-  {
-  stepperCtrl.step(STEPPER_REVERSE);
-  }
-  */
 }
 
-
+#ifdef USE_ENABLE_PIN
+//this function is called when error pin chagnes as enable signal
+static void enableInput(void)
+{
+  static int enable;
+  //read our enable pin 
+  enable = digitalRead(PIN_ERROR);
+  stepperCtrl.enable(enable);
+}
+#endif
 
   
 
@@ -56,6 +56,10 @@ void setup() {
   commandsInit(); //setup command handler system
   
   attachInterrupt(digitalPinToInterrupt(PIN_STEP_INPUT), stepInput, RISING);
+  
+  #ifdef USE_ENABLE_PIN //if we use enable pin setup interrupt to handle it
+  attachInterrupt(digitalPinToInterrupt(PIN_ERROR), enableInput, CHANGE);
+  #endif
 
   LOG("SETUP DONE!");
 }
@@ -65,11 +69,20 @@ void TC5_Handler()
 {
 if (TC5->COUNT16.INTFLAG.bit.OVF == 1)
 {
-//	static int i=0;
-//	YELLOW_LED(i);
-//	i=(i+1) & 0x01;
+	int error;
 	
-	YELLOW_LED(stepperCtrl.process2()); //handle the control loop
+	error=(stepperCtrl.process2()); //handle the control loop
+	YELLOW_LED(error);
+#ifndef USE_ENABLE_PIN
+	if (error)
+	{	//assume high is inactive and low is active on error pin
+		digitalWrite(PIN_ERROR,LOW);
+	}else 
+	{
+		digitalWrite(PIN_ERROR,HIGH);
+	}
+#endif
+
 	TC5->COUNT16.INTFLAG.bit.OVF = 1;    // writing a one clears the flag ovf flag
 }
 
