@@ -8,6 +8,7 @@
 #define WAIT_TC16_REGS_SYNC(x) while(x->COUNT16.STATUS.bit.SYNCBUSY);
 
 volatile bool TC5_ISR_Enabled=false;
+
 void setupTCInterrupts() {
 
 
@@ -55,6 +56,7 @@ void enableTCInterrupts() {
 
 	TC5_ISR_Enabled=true;
 	NVIC_EnableIRQ(TC5_IRQn);
+	TC5->COUNT16.INTENSET.bit.OVF = 1;
 	//  TC5->COUNT16.CTRLA.reg |= TC_CTRLA_ENABLE;    //Enable TC5
 	//  WAIT_TC16_REGS_SYNC(TC5)                      //wait for sync
 }
@@ -62,7 +64,8 @@ void enableTCInterrupts() {
 void disableTCInterrupts() {
 
 	TC5_ISR_Enabled=false;
-	NVIC_DisableIRQ(TC5_IRQn);
+	//NVIC_DisableIRQ(TC5_IRQn);
+	TC5->COUNT16.INTENCLR.bit.OVF = 1;
 }
 
 
@@ -137,7 +140,12 @@ void StepperCtrl::setLocationFromEncoder(void)
 
 void StepperCtrl::encoderDiagnostics(char *ptrStr)
 {
+	bool state=TC5_ISR_Enabled;
+	disableTCInterrupts();
+
 	encoder.diagnostics(ptrStr);
+
+	if (state) enableTCInterrupts();
 }
 
 
@@ -213,8 +221,11 @@ int32_t StepperCtrl::measureError(void)
 
 bool StepperCtrl::changeMicrostep(uint16_t microSteps)
 {
+	bool state=TC5_ISR_Enabled;
+	disableTCInterrupts();
 	numMicroSteps=microSteps;
 	motorReset();
+	if (state) enableTCInterrupts();
 	return true;
 }
 
@@ -377,6 +388,8 @@ void StepperCtrl::UpdateLcd(void)
 	static int32_t RPM=0;
 	int32_t lasttime=0;
 	int32_t d;
+	bool state;
+
 	display.clearDisplay();
 
 
@@ -385,17 +398,19 @@ void StepperCtrl::UpdateLcd(void)
 	display.setTextSize(2);
 	display.setTextColor(WHITE);
 
+	state=TC5_ISR_Enabled;
 	disableTCInterrupts();
-	lastAngle=getCurrentLocation();
+	lastAngle=getDesiredLocation();
 	lasttime=millis();
-	enableTCInterrupts();
+	if (state) enableTCInterrupts();
 	delay(100);
 
+	state=TC5_ISR_Enabled;
 	disableTCInterrupts();
-	deg=getCurrentLocation();
+	deg=getDesiredLocation();
 	err=measureError();
 	y=millis()-lasttime;
-	enableTCInterrupts();
+	if (state) enableTCInterrupts();
 
 
 
@@ -439,6 +454,7 @@ void StepperCtrl::UpdateLcd(void)
 
 	//LOG("error is %d",err);
 
+
 	err=(err*360*100)/(int32_t)ANGLE_STEPS;
 	x=err/100;
 	y=abs(err-x*100);
@@ -451,13 +467,16 @@ void StepperCtrl::UpdateLcd(void)
 	//	sprintf(str,"%01d.%02d Amps", NVM->SystemParams.currentMa/1000, NVM->SystemParams.currentMa%1000);
 	//	display.setCursor(0,20);
 	//	display.println(str);
+#ifndef NZS_LCD_ABSOULTE_ANGLE
+	deg=deg & ANGLE_MAX; //limit to 360 degrees
+#endif
 
-	deg=deg & ANGLE_MAX;
-	deg=(deg*360 *100)/ANGLE_STEPS;
-	x=deg/100;
-	y=abs(deg-x*100);
+	deg=(deg*360*10)/(int32_t)ANGLE_STEPS;
+	x=(deg)/10;
+	y=abs(deg-(x*10));
 
-	sprintf(str,"%01d.%02d deg", x,y);
+	LOG("deg is %d, %d, %d",deg, x, y);
+	sprintf(str,"%03d.%01ddeg", x,y);
 	display.setCursor(0,40);
 	display.println(str);
 
@@ -641,7 +660,7 @@ int StepperCtrl::begin(void)
 	int i;
 	int32_t x;
 
-	enableFeedback=false;
+	enableFeedback=true;
 	forwardWiring=true; //assume we are forward wiring to start with
 
 	degreesPerFullStep=0;
@@ -708,6 +727,7 @@ int StepperCtrl::begin(void)
 	//turn microstepping on
 	changeMicrostep(16);
 	motorReset();
+	enableFeedback=true;
 	setupTCInterrupts();
 	enableTCInterrupts();
 
@@ -758,6 +778,8 @@ void StepperCtrl::feedback(bool enable)
 
 void StepperCtrl::updateStep(int dir, uint16_t steps)
 {
+	bool state=TC5_ISR_Enabled;
+		disableTCInterrupts();
 	if (dir)
 	{
 		numSteps-=steps;
@@ -765,6 +787,7 @@ void StepperCtrl::updateStep(int dir, uint16_t steps)
 	{
 		numSteps+=steps;
 	}
+	if (state) enableTCInterrupts();
 }
 
 void StepperCtrl::requestStep(int dir, uint16_t steps)
@@ -787,19 +810,13 @@ void StepperCtrl::move(int dir, uint16_t steps)
 	int64_t ret;
 	int32_t n;
 
-	n=numMicroSteps;
 
-	if (dir)
-	{
-		numSteps-=steps;
 
-	}else
-	{
-		numSteps+=steps;
-	}
+	updateStep(dir,steps);
 
 	if (false == enableFeedback)
 	{
+		n=numMicroSteps;
 		ret=((int64_t)numSteps * A4954_NUM_MICROSTEPS+(n/2))/n;
 		n=A4954_NUM_MICROSTEPS*fullStepsPerRotation;
 		while(ret>n)
@@ -824,9 +841,11 @@ int64_t StepperCtrl::getDesiredLocation(void)
 {
 	int64_t ret;
 	int32_t n;
-
+	bool state=TC5_ISR_Enabled;
+	disableTCInterrupts();
 	n=fullStepsPerRotation * numMicroSteps;
-	ret=((int64_t)numSteps * ANGLE_STEPS+(n/2))/n;
+	ret=((int64_t)numSteps * (int64_t)ANGLE_STEPS+(n/2))/n;
+	if (state) enableTCInterrupts();
 	return ret;
 }
 
@@ -893,6 +912,19 @@ int StepperCtrl::measure(void)
 
 
 
+
+void StepperCtrl::moveToAbsAngle(int32_t a)
+{
+
+	int64_t ret;
+	int32_t n;
+
+	n=fullStepsPerRotation * numMicroSteps;
+
+	ret=((int64_t)a*n)/(int32_t)ANGLE_STEPS;
+	numSteps=ret;
+}
+
 void StepperCtrl::moveToAngle(int32_t a, uint32_t ma)
 {
 	//we need to convert 'Angle' to A4954 steps
@@ -909,7 +941,8 @@ int32_t StepperCtrl::getCurrentLocation(void)
 {
 	Angle a;
 	int32_t x;
-
+	bool state=TC5_ISR_Enabled;
+	disableTCInterrupts();
 	a=calTable.fastReverseLookup(sampleAngle());
 	x=(int32_t)a - (int32_t)(currentLocation & ANGLE_MAX);
 
@@ -922,8 +955,18 @@ int32_t StepperCtrl::getCurrentLocation(void)
 		currentLocation += ANGLE_STEPS;
 	}
 	currentLocation=(currentLocation & 0xFFFF0000UL) | (uint16_t)a;
+	if (state) enableTCInterrupts();
 	return currentLocation;
 
+}
+
+float StepperCtrl::getCurrentAngle(void)
+{
+	int32_t x;
+	float f;
+	x=getCurrentLocation();
+	f=(x*360.0)/(float)ANGLE_STEPS;
+	return f;
 }
 //Since we are doing fixed point math our
 // threshold needs to be large.
@@ -1004,7 +1047,7 @@ bool StepperCtrl::process(void)
 
 		}
 
-		moveToAngle(y,U);
+		//moveToAngle(y,U);
 
 
 		calls++;
@@ -1116,6 +1159,30 @@ bool StepperCtrl::process2(void)
 		return 1;
 	}
 	return 0;
+}
+
+
+void StepperCtrl::enable(bool enable)
+{
+	bool state=TC5_ISR_Enabled;
+	disableTCInterrupts();
+	uint16_t microSteps=numMicroSteps;
+	bool feedback=enableFeedback;
+
+	enabled=enable;
+	stepperDriver.enable(enabled); //enable or disable the stepper driver as needed
+
+	if (enabled==false && enable==true) //if we are enabling previous disabled motor
+	{
+		enableFeedback=false;
+		numMicroSteps=1;
+		LOG("reset motor");
+		motorReset();
+	}
+
+	numMicroSteps=microSteps;
+	enableFeedback=feedback;
+	if (state) enableTCInterrupts();
 }
 
 void StepperCtrl::testRinging(void)

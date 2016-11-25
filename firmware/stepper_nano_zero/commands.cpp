@@ -21,57 +21,44 @@ CMD_STR(readpos, "reads the current angle as 16bit number, applies calibration i
 CMD_STR(encoderdiag, "Prints encoder diagnositc")
 CMD_STR(pid, "with no arguments prints PID parameters, with arguments sets PID 'PID Kp Ki Kd Threshold' "
 		"Where Kp,Ki,Kd,Threshold are int32_t numbers")
-CMD_STR(testringing ,"Steps motor at various currents and measures encoder")
-CMD_STR(microsteperror ,"test error on microstepping")
-CMD_STR(params, "with no arguments read parameters, will set 'params currentMa holdCurrentMa errorLimit'")
-CMD_STR(boot, "Enters the bootloader")
-CMD_STR(move, "moves encoder x degrees at y ma 'move x y'")
-CMD_STR(test, "test")
-//List of supported commands
-sCommand Cmds[] =
-{
-		COMMAND(help),
-		COMMAND(calibrate),
-		COMMAND(getcal),
-		COMMAND(testcal),
-		COMMAND(microstep),
-		COMMAND(step),
-		COMMAND(feedback),
-		COMMAND(readpos),
-		COMMAND(encoderdiag),
-		COMMAND(pid),
-		COMMAND(testringing),
-		COMMAND(microsteperror),
-		COMMAND(params),
-		COMMAND(boot),
-		COMMAND(move),
-		COMMAND(test),
-		{"",0,""}, //End of list signal
-};
+		CMD_STR(testringing ,"Steps motor at various currents and measures encoder")
+		CMD_STR(microsteperror ,"test error on microstepping")
+		CMD_STR(params, "with no arguments read parameters, will set 'params currentMa holdCurrentMa errorLimit'")
+		CMD_STR(boot, "Enters the bootloader")
+		CMD_STR(move, "moves encoder to absolute angle in degrees 'move 400.1'")
 
-static int test_cmd(sCmdUart *ptrUart,int argc, char * argv[])
-{
-	int32_t x=0;;
-	int32_t i;
+		//List of supported commands
+		sCommand Cmds[] =
+		{
+				COMMAND(help),
+				COMMAND(calibrate),
+				COMMAND(getcal),
+				COMMAND(testcal),
+				COMMAND(microstep),
+				COMMAND(step),
+				COMMAND(feedback),
+				COMMAND(readpos),
+				COMMAND(encoderdiag),
+				COMMAND(pid),
+				COMMAND(testringing),
+				COMMAND(microsteperror),
+				COMMAND(params),
+				COMMAND(boot),
+				COMMAND(move),
 
-	for (i=0; i<100; i++)
-	{
-		x=stepperCtrl.getCurrentLocation()+300;
-		LOG("x is %d, %d",x,stepperCtrl.getCurrentLocation());
-		stepperCtrl.moveToAngle(x,2000);
-		delay(100);
-		stepperCtrl.process();
-	}
-	return 0;
-}
+				{"",0,""}, //End of list signal
+		};
+
 
 static int move_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	int32_t x,ma;
 	CommandPrintf(ptrUart, "Move %d",argc);
-	if (2 == argc)
+
+	if (1 == argc)
 	{
 		float f;
+
 		f=atof(argv[0]);
 		//		if (f>1.8)
 		//			f=1.8;
@@ -79,10 +66,9 @@ static int move_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 		//			f=-1.8;
 		x=ANGLE_FROM_DEGREES(f);
 		LOG("moving %d", x);
-		ma=atoi(argv[1]);
-
-		stepperCtrl.moveToAngle(x,ma);
+		stepperCtrl.moveToAbsAngle(x);
 	}
+
 	return 0;
 }
 
@@ -187,11 +173,13 @@ static int encoderdiag_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 
 static int readpos_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
-	uint16_t pos,a;
-	int32_t x;
+	float pos;
+	int32_t x,y;
 
-	pos=stepperCtrl.measureMeanEncoder();
-	CommandPrintf(ptrUart,"encoder %d",pos);
+	pos=stepperCtrl.getCurrentAngle();
+	x=int(pos);
+	y=abs((pos-x)*100);
+	CommandPrintf(ptrUart,"encoder %d.%02d",x,y);
 	return 0;
 }
 static int feedback_cmd(sCmdUart *ptrUart,int argc, char * argv[])

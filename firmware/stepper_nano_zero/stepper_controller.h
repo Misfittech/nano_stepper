@@ -19,9 +19,10 @@ class StepperCtrl
     A4954 stepperDriver;
     Adafruit_SSD1306 display;
     bool currentLimit;
+    volatile bool enabled;
 
-    int32_t numMicroSteps=16;
-    int32_t fullStepsPerRotation=200;
+    volatile int32_t numMicroSteps=16;
+    volatile int32_t fullStepsPerRotation=200;
 
 
     volatile int64_t numSteps; //this is the number of steps we have taken from our start angle
@@ -59,6 +60,8 @@ class StepperCtrl
     void showSplash(void);
     void menu(void);
     void showCalError(void);
+    int32_t measureMeanEncoder(void);
+    int32_t getCurrentLocation(void);
   public:
 
     CalibrationTable calTable;
@@ -66,6 +69,7 @@ class StepperCtrl
     bool calibrateEncoder(void); //do manual calibration of the encoder
     Angle maxCalibrationError(void); //measures the maximum calibration error as an angle
 
+    void moveToAbsAngle(int32_t a);
     void moveToAngle(int32_t a, uint32_t ma);
 
     int begin(void);
@@ -75,8 +79,8 @@ class StepperCtrl
 
 
     int measure(void);
-    int32_t measureMeanEncoder(void);
     
+
 
     bool changeMicrostep(uint16_t microSteps);
     void feedback(bool enable);
@@ -86,10 +90,12 @@ class StepperCtrl
     int32_t getMicroSteps(void) {return numMicroSteps;}
     int32_t measureError(void);
     void testRinging(void);
-    int32_t getCurrentLocation(void);
+
+    float getCurrentAngle(void);
 
     void move(int dir, uint16_t steps); //forces motor to move even if feedback controller is turned off.
     void UpdateLcd(void); //this can be called from outside class
+    void enable(bool enable);
 };
 
 #endif //__STEPPER_CONTROLLER_H__

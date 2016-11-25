@@ -416,6 +416,14 @@ int32_t A4954::move(int32_t stepAngle, uint32_t mA)
 	int32_t cos,sin;
 	int32_t dacSin,dacCos;
 
+
+	if (enabled == false)
+	{
+		setDAC(0,0); //turn current off
+		bridge1(3); //tri state bridge outputs
+		bridge2(3); //tri state bridge outputs
+	}
+
 	//WARNING("move %d %d",stepAngle,mA);
 	//handle roll overs, could do with modulo operator
 	stepAngle=stepAngle%SINE_STEPS;

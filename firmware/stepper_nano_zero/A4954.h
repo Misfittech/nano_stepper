@@ -28,6 +28,7 @@ class A4954
 private:
 	uint32_t lastStepMicros; // time in microseconds that last step happened
 	bool forwardRotation=true;
+	volatile bool enabled=true;
 
 public:
 	void begin(void);
@@ -38,6 +39,7 @@ public:
 	uint32_t microsSinceStep(void) {return micros()-lastStepMicros;};
 	void setRotationDirection(bool forward) {forwardRotation=forward;};
 
+	void enable(bool enable);
 	void limitCurrent(uint8_t percent); //higher more current
 };
 
