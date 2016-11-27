@@ -13,10 +13,14 @@
 
 #define NZS_CONTROL_LOOP_HZ (4000) //update rate of control loop, this should be limited to less than 5k
 
+<<<<<<< HEAD:firmware/stepper_nano_zero/board.h
 #define NZS_LCD_ABSOULTE_ANGLE  //define this to show angle from zero in positive and negative direction
 								// for example 2 rotations from start will be angle of 720 degrees
 
 #define VERSION "FW: 0.04" //this is what prints on LCD during splash screen
+=======
+#define VERSION "FW: 0.03" //this is what prints on LCD during splash screen
+>>>>>>> 2226a588d97e2a1798ec7a1ea41cc1382f29fba3:firmware/board.h
 
 /* change log
  *   0.02 added fixes for 0.9 degree motor
