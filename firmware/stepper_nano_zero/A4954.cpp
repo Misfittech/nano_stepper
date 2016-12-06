@@ -137,9 +137,73 @@ static void syncTCC(Tcc* TCCx) {
 }
 
 
+static inline void bridge1(int state)
+{
+	if (state==0)
+	{
+		PORT->Group[g_APinDescription[PIN_A4954_IN1].ulPort].PINCFG[g_APinDescription[PIN_A4954_IN1].ulPin].bit.PMUXEN = 0;
+		GPIO_OUTPUT(PIN_A4954_IN1);//pinMode(PIN_A4954_IN1,OUTPUT);
+		GPIO_OUTPUT(PIN_A4954_IN2);//pinMode(PIN_A4954_IN2,OUTPUT);
+		GPIO_HIGH(PIN_A4954_IN1);// digitalWrite(PIN_A4954_IN1, HIGH);
+		GPIO_LOW(PIN_A4954_IN2);//digitalWrite(PIN_A4954_IN2, LOW);
+		//pinPeripheral(PIN_A4954_IN2, PIO_TIMER_ALT);
+		pinState=(pinState & 0x0C) | 0x1;
+	}
+	if (state==1)
+	{
+		PORT->Group[g_APinDescription[PIN_A4954_IN2].ulPort].PINCFG[g_APinDescription[PIN_A4954_IN2].ulPin].bit.PMUXEN = 0;
+		GPIO_OUTPUT(PIN_A4954_IN2);//pinMode(PIN_A4954_IN2,OUTPUT);
+		GPIO_OUTPUT(PIN_A4954_IN1);pinMode(PIN_A4954_IN1,OUTPUT);
+		GPIO_LOW(PIN_A4954_IN1);//digitalWrite(PIN_A4954_IN1, LOW);
+		GPIO_HIGH(PIN_A4954_IN2);//digitalWrite(PIN_A4954_IN2, HIGH);
+		//pinPeripheral(PIN_A4954_IN1, PIO_TIMER);
+		pinState=(pinState & 0x0C) | 0x2;
+	}
+	if (state==3)
+	{
+		GPIO_LOW(PIN_A4954_IN1);
+		GPIO_LOW(PIN_A4954_IN2);
+		//digitalWrite(PIN_A4954_IN1, LOW);
+		//digitalWrite(PIN_A4954_IN2, LOW);
+	}
+}
+
+static inline void bridge2(int state)
+{
+	if (state==0)
+	{
+		PORT->Group[g_APinDescription[PIN_A4954_IN3].ulPort].PINCFG[g_APinDescription[PIN_A4954_IN3].ulPin].bit.PMUXEN = 0;
+		GPIO_OUTPUT(PIN_A4954_IN3); //pinMode(PIN_A4954_IN3,OUTPUT);
+		GPIO_OUTPUT(PIN_A4954_IN4);//pinMode(PIN_A4954_IN4,OUTPUT);
+		GPIO_HIGH(PIN_A4954_IN3);//digitalWrite(PIN_A4954_IN3, HIGH);
+		GPIO_LOW(PIN_A4954_IN4);//digitalWrite(PIN_A4954_IN4, LOW);
+		//pinPeripheral(PIN_A4954_IN4, PIO_TIMER_ALT);
+		pinState=(pinState & 0x03) | 0x4;
+	}
+	if (state==1)
+	{
+		PORT->Group[g_APinDescription[PIN_A4954_IN4].ulPort].PINCFG[g_APinDescription[PIN_A4954_IN4].ulPin].bit.PMUXEN = 0;
+		GPIO_OUTPUT(PIN_A4954_IN4);//pinMode(PIN_A4954_IN4,OUTPUT);
+		GPIO_OUTPUT(PIN_A4954_IN3);//pinMode(PIN_A4954_IN3,OUTPUT);
+		GPIO_LOW(PIN_A4954_IN3);//digitalWrite(PIN_A4954_IN3, LOW);
+		GPIO_HIGH(PIN_A4954_IN4);//digitalWrite(PIN_A4954_IN4, HIGH);
+		//pinPeripheral(PIN_A4954_IN3, PIO_TIMER_ALT);
+		pinState=(pinState & 0x03) | 0x8;
+	}
+	if (state==3)
+	{
+		GPIO_LOW(PIN_A4954_IN3);
+		GPIO_LOW(PIN_A4954_IN4);
+		//digitalWrite(PIN_A4954_IN3, LOW);
+		//digitalWrite(PIN_A4954_IN4, LOW);
+	}
+}
 
 void enableTCC0(uint8_t percent)
 {
+#ifdef MECHADUINO_HARDWARE
+	return;
+#else
 	Tcc* TCCx = TCC0 ;
 
 
@@ -159,16 +223,16 @@ void enableTCC0(uint8_t percent)
 	syncTCC(TCCx);
 
 	// Set TCx in waveform mode Normal PWM
-	TCCx->CC[1].reg = (uint32_t)ulValue; //ch5
+	TCCx->CC[1].reg = (uint32_t)ulValue; //ch5 //IN3
 	syncTCC(TCCx);
 
-	TCCx->CC[2].reg = (uint32_t)ulValue; //ch6
+	TCCx->CC[2].reg = (uint32_t)ulValue; //ch6 //IN4
 	syncTCC(TCCx);
 
-	TCCx->CC[3].reg = (uint32_t)ulValue; //ch7
+	TCCx->CC[3].reg = (uint32_t)ulValue; //ch7  //IN2
 	syncTCC(TCCx);
 
-	TCCx->CC[1].reg = (uint32_t)ulValue; //ch1 == ch5
+	TCCx->CC[1].reg = (uint32_t)ulValue; //ch1 == ch5 //IN1
 
 	syncTCC(TCCx);
 
@@ -180,7 +244,7 @@ void enableTCC0(uint8_t percent)
 	TCCx->CTRLA.reg |= TCC_CTRLA_ENABLE ;
 	syncTCC(TCCx);
 	//ERROR("Enable TCC0 DONE");
-
+#endif
 }
 
 void setDAC(uint32_t DAC1, uint32_t DAC2)
@@ -257,22 +321,32 @@ void A4954::begin()
 
 	enableTCC0(90);
 	setupDAC();
-
-
+//
+//	WARNING("Setting DAC for 500mA output");
+//	setDAC((int32_t)((int64_t)1000*(DAC_MAX))/3300,(int32_t)((int64_t)1000*(DAC_MAX))/3300);
+//	bridge1(0);
+//	bridge2(0);
+//	while(1)
+//	{
+//
+//	}
 	return;
 }
 
 void A4954::limitCurrent(uint8_t percent)
 {
+#ifdef MECHADUINO_HARDWARE
+	return;
+#else
 	//WARNING("current limit %d",percent);
 	enableTCC0(percent);
 	if (pinState & 0x01)
 	{
-		pinPeripheral(PIN_A4954_IN2, PIO_TIMER_ALT);
+		pinPeripheral(PIN_A4954_IN2, PIO_TIMER_ALT); //TCC0 WO[7]
 	}
 	if (pinState & 0x02)
 	{
-		pinPeripheral(PIN_A4954_IN1, PIO_TIMER);
+		pinPeripheral(PIN_A4954_IN1, PIO_TIMER); //TCC0 WO[1]
 	}
 	if (pinState & 0x04)
 	{
@@ -282,65 +356,9 @@ void A4954::limitCurrent(uint8_t percent)
 	{
 		pinPeripheral(PIN_A4954_IN3, PIO_TIMER_ALT);
 	}
+#endif
 }
 
-static inline void bridge1(int state)
-{
-	if (state==0)
-	{
-		PORT->Group[g_APinDescription[PIN_A4954_IN1].ulPort].PINCFG[g_APinDescription[PIN_A4954_IN1].ulPin].bit.PMUXEN = 0;
-		pinMode(PIN_A4954_IN1,OUTPUT);
-		pinMode(PIN_A4954_IN2,OUTPUT);
-		digitalWrite(PIN_A4954_IN1, HIGH);
-		digitalWrite(PIN_A4954_IN2, LOW);
-		//pinPeripheral(PIN_A4954_IN2, PIO_TIMER_ALT);
-		pinState=(pinState & 0x0C) | 0x1;
-	}
-	if (state==1)
-	{
-		PORT->Group[g_APinDescription[PIN_A4954_IN2].ulPort].PINCFG[g_APinDescription[PIN_A4954_IN2].ulPin].bit.PMUXEN = 0;
-		pinMode(PIN_A4954_IN2,OUTPUT);
-		pinMode(PIN_A4954_IN1,OUTPUT);
-		digitalWrite(PIN_A4954_IN1, LOW);
-		digitalWrite(PIN_A4954_IN2, HIGH);
-		//pinPeripheral(PIN_A4954_IN1, PIO_TIMER);
-		pinState=(pinState & 0x0C) | 0x2;
-	}
-	if (state==3)
-	{
-		digitalWrite(PIN_A4954_IN1, LOW);
-		digitalWrite(PIN_A4954_IN2, LOW);
-	}
-}
-
-static inline void bridge2(int state)
-{
-	if (state==0)
-	{
-		PORT->Group[g_APinDescription[PIN_A4954_IN3].ulPort].PINCFG[g_APinDescription[PIN_A4954_IN3].ulPin].bit.PMUXEN = 0;
-		pinMode(PIN_A4954_IN3,OUTPUT);
-		pinMode(PIN_A4954_IN4,OUTPUT);
-		digitalWrite(PIN_A4954_IN3, HIGH);
-		digitalWrite(PIN_A4954_IN4, LOW);
-		//pinPeripheral(PIN_A4954_IN4, PIO_TIMER_ALT);
-		pinState=(pinState & 0x03) | 0x4;
-	}
-	if (state==1)
-	{
-		PORT->Group[g_APinDescription[PIN_A4954_IN4].ulPort].PINCFG[g_APinDescription[PIN_A4954_IN4].ulPin].bit.PMUXEN = 0;
-		pinMode(PIN_A4954_IN4,OUTPUT);
-		pinMode(PIN_A4954_IN3,OUTPUT);
-		digitalWrite(PIN_A4954_IN3, LOW);
-		digitalWrite(PIN_A4954_IN4, HIGH);
-		//pinPeripheral(PIN_A4954_IN3, PIO_TIMER_ALT);
-		pinState=(pinState & 0x03) | 0x8;
-	}
-	if (state==3)
-	{
-		digitalWrite(PIN_A4954_IN3, LOW);
-		digitalWrite(PIN_A4954_IN4, LOW);
-	}
-}
 
 
 

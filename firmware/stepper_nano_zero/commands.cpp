@@ -19,59 +19,74 @@ CMD_STR(step, "Steps motor one step, optionally direction can be set is 'step 1'
 CMD_STR(feedback, "enable or disable feedback controller, 'feedback 0' - disables, 'feedback 1' - enables");
 CMD_STR(readpos, "reads the current angle as 16bit number, applies calibration if valid");
 CMD_STR(encoderdiag, "Prints encoder diagnositc")
-CMD_STR(pid, "with no arguments prints PID parameters, with arguments sets PID 'PID Kp Ki Kd Threshold' "
-		"Where Kp,Ki,Kd,Threshold are int32_t numbers")
-CMD_STR(testringing ,"Steps motor at various currents and measures encoder")
-CMD_STR(microsteperror ,"test error on microstepping")
-CMD_STR(params, "with no arguments read parameters, will set 'params currentMa holdCurrentMa errorLimit'")
-CMD_STR(boot, "Enters the bootloader")
-CMD_STR(move, "moves encoder x degrees at y ma 'move x y'")
-CMD_STR(test, "test")
-//List of supported commands
-sCommand Cmds[] =
-{
-		COMMAND(help),
-		COMMAND(calibrate),
-		COMMAND(getcal),
-		COMMAND(testcal),
-		COMMAND(microstep),
-		COMMAND(step),
-		COMMAND(feedback),
-		COMMAND(readpos),
-		COMMAND(encoderdiag),
-		COMMAND(pid),
-		COMMAND(testringing),
-		COMMAND(microsteperror),
-		COMMAND(params),
-		COMMAND(boot),
-		COMMAND(move),
-		COMMAND(test),
-		{"",0,""}, //End of list signal
-};
+CMD_STR(spid, "with no arguments prints simple PID parameters, with arguments sets PID 'sPID Kp Ki Kd' "
+		"Where Kp,Ki,Kd are floating point numbers")
+		CMD_STR(testringing ,"Steps motor at various currents and measures encoder")
+		//CMD_STR(microsteperror ,"test error on microstepping")
+		CMD_STR(params, "with no arguments read parameters, will set 'params currentMa holdCurrentMa errorLimit'")
+		CMD_STR(boot, "Enters the bootloader")
+		CMD_STR(move, "moves encoder to absolute angle in degrees 'move 400.1'")
+		CMD_STR(mode, "sets the feedback control mode, 0- simple, 1- PID")
+		CMD_STR(printdata, "prints last n error terms")
+		//List of supported commands
+		sCommand Cmds[] =
+		{
+				COMMAND(help),
+				COMMAND(calibrate),
+				COMMAND(getcal),
+				COMMAND(testcal),
+				COMMAND(microstep),
+				COMMAND(step),
+				COMMAND(feedback),
+				COMMAND(readpos),
+				COMMAND(encoderdiag),
+				COMMAND(spid),
+				COMMAND(testringing),
+				//COMMAND(microsteperror),
+				COMMAND(params),
+				COMMAND(boot),
+				COMMAND(move),
+				COMMAND(mode),
+				COMMAND(printdata),
 
-static int test_cmd(sCmdUart *ptrUart,int argc, char * argv[])
-{
-	int32_t x=0;;
-	int32_t i;
+				{"",0,""}, //End of list signal
+		};
 
-	for (i=0; i<100; i++)
+static int printdata_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	int32_t x;
+
+	stepperCtrl.printData();
+
+	return 0;
+}
+
+static int mode_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	int32_t x;
+
+	if (1 == argc)
 	{
-		x=stepperCtrl.getCurrentLocation()+300;
-		LOG("x is %d, %d",x,stepperCtrl.getCurrentLocation());
-		stepperCtrl.moveToAngle(x,2000);
-		delay(100);
-		stepperCtrl.process();
+
+
+		x=atoi(argv[0]);
+		if (x<0) x=0;
+		if (x>2) x=2;
+		stepperCtrl.setControlMode((feedbackCtrl_t)x);
 	}
+
 	return 0;
 }
 
 static int move_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	int32_t x,ma;
-	CommandPrintf(ptrUart, "Move %d",argc);
-	if (2 == argc)
+	//CommandPrintf(ptrUart, "Move %d",argc);
+
+	if (1 == argc)
 	{
 		float f;
+
 		f=atof(argv[0]);
 		//		if (f>1.8)
 		//			f=1.8;
@@ -79,10 +94,9 @@ static int move_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 		//			f=-1.8;
 		x=ANGLE_FROM_DEGREES(f);
 		LOG("moving %d", x);
-		ma=atoi(argv[1]);
-
-		stepperCtrl.moveToAngle(x,ma);
+		stepperCtrl.moveToAbsAngle(x);
 	}
+
 	return 0;
 }
 
@@ -91,6 +105,7 @@ static int boot_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	initiateReset(250);
 }
 
+/*
 static int microsteperror_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	int i,n,j;
@@ -107,14 +122,14 @@ static int microsteperror_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 			int32_t e;
 			stepperCtrl.requestStep(1,1);
 			//stepperCtrl.step(1, 2000);
-			stepperCtrl.process();
+			stepperCtrl.pidFeedback();
 
 			//average 1readings
 			int32_t sum=0,ii;
 			for (ii=0; ii<1; ii++)
 			{
 				sum+=stepperCtrl.measureError();
-				stepperCtrl.process();
+				stepperCtrl.pidFeedback();
 			}
 			e=sum/ii;
 			CommandPrintf(ptrUart,"%d %d\n\r",i,e);
@@ -122,7 +137,7 @@ static int microsteperror_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	}
 	stepperCtrl.feedback(feedback); //restore feedback
 	return 0;
-}
+} */
 static int testringing_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	stepperCtrl.testRinging();
@@ -153,27 +168,46 @@ static int params_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	return 0;
 }
 
-static int pid_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+static int spid_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	if (0 == argc)
 	{
-		CommandPrintf(ptrUart,"Kp %d\n\r",NVM->PIDparams.Kp);
-		CommandPrintf(ptrUart,"Ki %d\n\r",NVM->PIDparams.Ki);
-		CommandPrintf(ptrUart,"Kd %d\n\r",NVM->PIDparams.Kd);
-		CommandPrintf(ptrUart,"Threshold %d\n\r",NVM->PIDparams.Threshold);
+		int32_t x,y;
+		x=(int32_t)NVM->sPID.Kp;
+		y=abs(1000*NVM->sPID.Kp-(x*1000));
+		CommandPrintf(ptrUart,"Kp %d,%03d\n\r",x,y);
+
+		x=(int32_t)NVM->sPID.Ki;
+		y=abs(1000*NVM->sPID.Ki-(x*1000));
+		CommandPrintf(ptrUart,"Ki %d.%03d\n\r",x,y);
+
+		x=(int32_t)NVM->sPID.Kd;
+		y=abs(1000*NVM->sPID.Kd-(x*1000));
+		CommandPrintf(ptrUart,"Kd %d.%03d\n\r",x,y);
 	}
 	if (4 == argc)
 	{
-		int32_t Kp,Ki,Kd,Threshold;
-		Kp=atol(argv[0]);
-		Ki=atol(argv[1]);
-		Kd=atol(argv[2]);
-		Threshold=atol(argv[3]);
-		nvmWritePID(Kp,Ki,Kd,Threshold);
-		CommandPrintf(ptrUart,"Kp %d\n\r",NVM->PIDparams.Kp);
-		CommandPrintf(ptrUart,"Ki %d\n\r",NVM->PIDparams.Ki);
-		CommandPrintf(ptrUart,"Kd %d\n\r",NVM->PIDparams.Kd);
-		CommandPrintf(ptrUart,"Threshold %d\n\r",NVM->PIDparams.Threshold);
+		float Kp,Ki,Kd;
+		int32_t x,y;
+
+		Kp=atof(argv[0]);
+		Ki=atof(argv[1]);
+		Kd=atof(argv[2]);
+
+		nvmWrite_sPID(Kp,Ki,Kd);
+		stepperCtrl.updatePIDs(); //force the controller to use the new parameters
+
+		x=(int32_t)NVM->sPID.Kp;
+		y=abs(1000*NVM->sPID.Kp-(x*1000));
+		CommandPrintf(ptrUart,"Kp %d,%03d\n\r",x,y);
+
+		x=(int32_t)NVM->sPID.Ki;
+		y=abs(1000*NVM->sPID.Ki-(x*1000));
+		CommandPrintf(ptrUart,"Ki %d.%03d\n\r",x,y);
+
+		x=(int32_t)NVM->sPID.Kd;
+		y=abs(1000*NVM->sPID.Kd-(x*1000));
+		CommandPrintf(ptrUart,"Kd %d.%03d\n\r",x,y);
 	}
 	return 0;
 }
@@ -187,11 +221,13 @@ static int encoderdiag_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 
 static int readpos_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
-	uint16_t pos,a;
-	int32_t x;
+	float pos;
+	int32_t x,y;
 
-	pos=stepperCtrl.measureMeanEncoder();
-	CommandPrintf(ptrUart,"encoder %d",pos);
+	pos=stepperCtrl.getCurrentAngle();
+	x=int(pos);
+	y=abs((pos-x)*100);
+	CommandPrintf(ptrUart,"encoder %d.%02d",x,y);
 	return 0;
 }
 static int feedback_cmd(sCmdUart *ptrUart,int argc, char * argv[])
@@ -302,23 +338,24 @@ static int testcal_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 
 uint8_t kbhit(void)
 {
-	return Serial.available();
+	return SerialUSB.available();
+	//return SerialUSB.peek() != -1;
 }
 uint8_t getChar(void)
 {
-	return Serial.read();
+	return SerialUSB.read();
 }
 uint8_t putch(char data)
 {
-	return Serial.write((uint8_t)data);
+	return SerialUSB.write((uint8_t)data);
 }
 
 
 void commandsInit(void)
 {
 	CommandInit(&UsbUart, kbhit, getChar, putch ,NULL); //set up the UART structure
-	Serial.print("\n\rPower Up\n\r");
-	Serial.print(COMMANDS_PROMPT);
+	SerialUSB.print("\n\rPower Up\n\r");
+	SerialUSB.print(COMMANDS_PROMPT);
 }
 
 int commandsProcess(void)

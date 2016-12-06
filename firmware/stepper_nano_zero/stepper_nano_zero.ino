@@ -35,11 +35,12 @@ void setup() {
 
   boardSetupPins();
   int to=20;
-  Serial.begin(460800);
+  SerialUSB.begin(460800);
+  
   Serial5.begin(460800);
   SysLogInit(&Serial5,LOG_DEBUG); //use SWO for the sysloging
   LOG("Power up!");
-  while (!Serial) 
+  while (!SerialUSB) 
   {
     to--;
     if (to == 0)
@@ -71,7 +72,7 @@ if (TC5->COUNT16.INTFLAG.bit.OVF == 1)
 {
 	int error;
 	
-	error=(stepperCtrl.process2()); //handle the control loop
+	error=(stepperCtrl.processFeedback()); //handle the control loop
 	YELLOW_LED(error);
 #ifndef USE_ENABLE_PIN
 	if (error)
@@ -100,6 +101,7 @@ void loop() {
 			t0=millis();
 			//stepperDriver.limitCurrent(99);
 			stepperCtrl.UpdateLcd();
+			LOG("Loop time %d", stepperCtrl.getLoopTime());
 			//calls=0;
 		}
    

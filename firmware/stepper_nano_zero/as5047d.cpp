@@ -40,7 +40,9 @@ static int getParity(uint16_t data)
 
 boolean AS5047D::begin(int csPin)
 {
+#ifdef PIN_AS5047D_PWR
 	digitalWrite(PIN_AS5047D_PWR,HIGH);
+#endif
 	digitalWrite(PIN_AS5047D_CS,LOW); //pull CS LOW by default (chip powered off)
 	digitalWrite(PIN_MOSI,LOW);
 	digitalWrite(PIN_SCK,LOW);
@@ -56,7 +58,8 @@ boolean AS5047D::begin(int csPin)
 
 	pinMode(PIN_MISO,INPUT);
 
-	SPISettings settingsA(1000000, MSBFIRST, SPI_MODE1);             ///400000, MSBFIRST, SPI_MODE1);
+	error=false;
+	SPISettings settingsA(10000000, MSBFIRST, SPI_MODE1);             ///400000, MSBFIRST, SPI_MODE1);
 	chipSelectPin=csPin;
 
 	LOG("csPin is %d",csPin);
@@ -79,12 +82,20 @@ boolean AS5047D::begin(int csPin)
 		if (t0==0)
 		{
 			ERROR("LF bit not set");
+			error=true;
 			return false;
 		}
 		data=readAddress(AS5047D_CMD_DIAAGC);
 	}
-	return true;
 
+#ifdef NZS_AS5047_PIPELINE
+	//read encoder a few times to flush the pipeline
+	readEncoderAnglePipeLineRead();
+	readEncoderAnglePipeLineRead();
+	readEncoderAnglePipeLineRead();
+	readEncoderAnglePipeLineRead();
+#endif
+	return true;
 }
 
 
@@ -92,7 +103,7 @@ boolean AS5047D::begin(int csPin)
 int16_t AS5047D::readAddress(uint16_t addr)
 {
 	uint16_t data;
-
+	error=false;
 	//make sure it is a read by setting bit 14
 	addr=addr | 0x4000;
 
@@ -119,6 +130,7 @@ int16_t AS5047D::readAddress(uint16_t addr)
 	{
 		//if bit 14 is set then we have an error
 		ERROR("read command 0x%04X failed",addr);
+		error=true;
 		return -1;
 	}
 
@@ -126,6 +138,7 @@ int16_t AS5047D::readAddress(uint16_t addr)
 	{
 		//parity did not match
 		ERROR("read command parity error 0x%04X ",addr);
+		error=true;
 		return -2;
 	}
 
@@ -145,9 +158,16 @@ int16_t AS5047D::readEncoderAnglePipeLineRead(void)
 {
 	int16_t data;
 	int error;
-	digitalWrite(chipSelectPin, LOW);
-	data=SPI.transfer16(0xFFFF); //to speed things up we know the parity and address for the read
+	GPIO_LOW(chipSelectPin);//(chipSelectPin, LOW);
+	//delayMicroseconds(1);
+	do {
+		// doing two 8 bit transfers is faster than one 16 bit
+		data =(uint16_t)SPI.transfer(0xFF)<<8 | ((uint16_t)SPI.transfer(0xFF) & 0x0FF);
+		//data=SPI.transfer16(0xFFFF); //to speed things up we know the parity and address for the read
+	}while(data & (1<<14)); //while error bit is set
+
 	data=data & 0x3FFF; //mask off the error and parity bits
+	GPIO_HIGH(chipSelectPin);
 	//digitalWrite(chipSelectPin, HIGH);
 	//TODO we really should check for errors and return a negative result or something
 	return data;

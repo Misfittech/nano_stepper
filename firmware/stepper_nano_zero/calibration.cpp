@@ -41,13 +41,13 @@ bool CalibrationTable::updateTableValue(int32_t index, int32_t value)
 void CalibrationTable::printCalTable(void)
 {
 	int i;
-	Serial.print("\n\r");
+	SerialUSB.print("\n\r");
 	for (i=0; i<CALIBRATION_TABLE_SIZE; i++)
 	{
-		Serial.print((uint16_t)table[i].value);
-		Serial.print(",");
+		SerialUSB.print((uint16_t)table[i].value);
+		SerialUSB.print(",");
 	}
-	Serial.print("\n\r");
+	SerialUSB.print("\n\r");
 }
 
 Angle CalibrationTable::fastReverseLookup(Angle encoderAngle)

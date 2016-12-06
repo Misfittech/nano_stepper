@@ -7,9 +7,29 @@
 #include "calibration.h"
 #include "A4954.h"
 
+#ifndef MECHADUINO_HARDWARE
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#endif 
 
+#define N_DATA (1024)
+
+typedef enum {
+	CTRL_OFF =0,
+	CTRL_SIMPLE = 1, //simple error controller
+	CTRL_POS_PID =2, //PID  Position controller
+} feedbackCtrl_t;
+
+
+typedef struct {
+	int32_t Kp;
+	int32_t Ki;
+	int32_t Kd;
+} PID_t;
+
+//this scales the PID parameters from Flash to floating point
+// to fixed point int32_t values
+#define CTRL_PID_SCALING (1024)
 
 class StepperCtrl 
 {
@@ -17,13 +37,22 @@ class StepperCtrl
 	volatile bool enableFeedback; //true if we are using PID control algorithm
     AS5047D encoder;
     A4954 stepperDriver;
+#ifndef MECHADUINO_HARDWARE //mech does not have LCD
     Adafruit_SSD1306 display;
+#endif
     bool currentLimit;
     volatile bool enabled;
 
-    int32_t numMicroSteps=16;
-    int32_t fullStepsPerRotation=200;
+    volatile feedbackCtrl_t controlType=CTRL_SIMPLE;
 
+    volatile int32_t loopTimeus; //time to run loop in microseconds
+
+    volatile int32_t numMicroSteps=16;
+    volatile int32_t fullStepsPerRotation=200;
+
+    volatile PID_t sPID;
+    volatile PID_t pPID;
+    volatile PID_t vPID;
 
     volatile int64_t numSteps; //this is the number of steps we have taken from our start angle
 
@@ -40,6 +69,8 @@ class StepperCtrl
     bool forwardWiring; //determines if the wiring is for forward rotation or reverse
                         // This way forward motion is always clockwise.
 
+
+    volatile int16_t data[N_DATA];
 
     //does linear interpolation of the encoder calibration table
     int32_t getAngleCalibration(int32_t encoderAngle);
@@ -60,24 +91,35 @@ class StepperCtrl
     void showSplash(void);
     void menu(void);
     void showCalError(void);
-  public:
+    int32_t measureMeanEncoder(void);
+    int32_t getCurrentLocation(void);
+    bool pidFeedback(void);
+    bool simpleFeedback(void);
+    void LCDShow(char *str);
 
+  public:
+    void updatePIDs(void);
     CalibrationTable calTable;
+    void printData(void);
 
     bool calibrateEncoder(void); //do manual calibration of the encoder
     Angle maxCalibrationError(void); //measures the maximum calibration error as an angle
 
+    void moveToAbsAngle(int32_t a);
     void moveToAngle(int32_t a, uint32_t ma);
 
     int begin(void);
-    bool process(void);
-    bool process2(void);
+
+    bool processFeedback(void); // does the feedback loop
+
+    void setControlMode(feedbackCtrl_t mode);
+
     void requestStep(int dir, uint16_t steps); //requests a step, if feedback controller is off motor does not move
 
 
     int measure(void);
-    int32_t measureMeanEncoder(void);
     
+
 
     bool changeMicrostep(uint16_t microSteps);
     void feedback(bool enable);
@@ -87,11 +129,16 @@ class StepperCtrl
     int32_t getMicroSteps(void) {return numMicroSteps;}
     int32_t measureError(void);
     void testRinging(void);
-    int32_t getCurrentLocation(void);
+
+    float getCurrentAngle(void);
 
     void move(int dir, uint16_t steps); //forces motor to move even if feedback controller is turned off.
     void UpdateLcd(void); //this can be called from outside class
     void enable(bool enable);
+
+    int32_t getLoopTime(void) { return loopTimeus;}
+    void PID_Autotune(void);
+
 };
 
 #endif //__STEPPER_CONTROLLER_H__

@@ -4,10 +4,9 @@
 #include "calibration.h"
 #include "board.h"
 typedef struct {
-	int32_t Kp;
-	int32_t Ki;
-	int32_t Kd;
-	int32_t Threshold;
+	float Kp;
+	float Ki;
+	float Kd;
 	bool parametersVaild;
 } PIDparams_t;
 
@@ -27,7 +26,9 @@ typedef struct {
 
 typedef struct {
 	FlashCalData_t CalibrationTable;
-	PIDparams_t PIDparams;
+	PIDparams_t sPID; //simple PID parameters
+	PIDparams_t pPID; //position PID parameters
+	PIDparams_t vPID; //velocity PID parameters
 	SystemParams_t SystemParams;
 #ifdef NZS_FAST_CAL
 	FastCal_t FastCal;
@@ -42,7 +43,9 @@ extern  const uint16_t  NVM_flash[256];
 #define NVM ((const nvm_t *)NVM_flash)
 
 bool nvmWriteCalTable(void *ptrData, uint32_t size);
-bool nvmWritePID(int32_t Kp, int32_t Ki, int32_t Kd, int32_t Threshold);
+bool nvmWrite_sPID(float Kp, float Ki, float Kd);
+bool nvmWrite_pPID(float Kp, float Ki, float Kd);
+bool nvmWrite_vPID(float Kp, float Ki, float Kd);
 bool nvmWriteSystemParms(int32_t currentMa, int32_t currentHoldMa, int32_t errorLimit);
 
 
