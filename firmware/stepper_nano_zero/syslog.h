@@ -8,7 +8,6 @@
 #ifndef SYSLOG_H_
 #define SYSLOG_H_
 
-#include "board.h"
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
@@ -28,7 +27,7 @@ extern "C"
 
 #define SYSLOG_WRITE(buffer,nBytes)
 
-#define SYSLOG_PUTC(x) SerialUSB.write(x)
+#define SYSLOG_PUTC(x) Serial.write(x)
 
 #define Sys_WDogHoldOn()
 #define Sys_WDogHoldOff()

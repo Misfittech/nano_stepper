@@ -38,6 +38,7 @@
 
 //mechaduio and Arduino Zero has defined serial ports differently than NZS
 #ifdef MECHADUINO_HARDWARE
+#warning "Compiling source for Mechaduino NOT NZS"
 #define Serial5 Serial 
 #else
 #define SerialUSB Serial
