@@ -113,6 +113,7 @@ class StepperCtrl
     bool processFeedback(void); // does the feedback loop
 
     void setControlMode(feedbackCtrl_t mode);
+    feedbackCtrl_t getControlMode(void) { return controlType;};
 
     void requestStep(int dir, uint16_t steps); //requests a step, if feedback controller is off motor does not move
 

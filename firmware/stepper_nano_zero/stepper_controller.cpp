@@ -726,6 +726,7 @@ int StepperCtrl::begin(void)
 	showSplash();
 #endif
 
+
 	stepperDriver.begin();
 	//stepperDriver.limitCurrent(99);
 	fullStepsPerRotation=200;
@@ -748,6 +749,7 @@ int StepperCtrl::begin(void)
 		nvmWrite_vPID(1.0, 0, 0);
 	}
 
+
 	updatePIDs(); //update the local cache from the NVM
 
 	if (false == NVM->SystemParams.parametersVaild)
@@ -758,6 +760,7 @@ int StepperCtrl::begin(void)
 
 	encoder.begin(PIN_AS5047D_CS);
 	calTable.init();
+
 
 	changeMicrostep(1);
 	x=measureStepSize();
@@ -941,6 +944,7 @@ int32_t StepperCtrl::measureMeanEncoder(void)
 		if (encoder.getError())
 		{
 			LCDShow("AS5047 Error");
+			SerialUSB.println("AS5047 Error");
 			delay(1000);
 			return 0;
 		}

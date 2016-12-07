@@ -51,7 +51,7 @@ boolean AS5047D::begin(int csPin)
 	delay(1000);
 
 
-	digitalWrite(PIN_AS5047D_CS,HIGH); //pull CS LOW by default (chip powered off)
+	digitalWrite(PIN_AS5047D_CS,HIGH); //pull CS high
 #ifdef PIN_AS5047D_PWR
 	digitalWrite(PIN_AS5047D_PWR,LOW);
 #endif
@@ -157,12 +157,19 @@ int16_t AS5047D::readEncoderAngle(void)
 int16_t AS5047D::readEncoderAnglePipeLineRead(void)
 {
 	int16_t data;
-	int error;
+	int error, t0=10;
 	GPIO_LOW(chipSelectPin);//(chipSelectPin, LOW);
 	//delayMicroseconds(1);
 	do {
+
 		// doing two 8 bit transfers is faster than one 16 bit
 		data =(uint16_t)SPI.transfer(0xFF)<<8 | ((uint16_t)SPI.transfer(0xFF) & 0x0FF);
+		t0--;
+		if (t0<=0)
+		{
+			ERROR("AS5047D problem");
+			break;
+		}
 		//data=SPI.transfer16(0xFFFF); //to speed things up we know the parity and address for the read
 	}while(data & (1<<14)); //while error bit is set
 

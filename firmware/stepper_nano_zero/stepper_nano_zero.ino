@@ -50,8 +50,10 @@ void setup() {
     delay(500);
    };     //wait for serial
 
-  //SysLogInit(&Serial5,LOG_DEBUG); //use SWO for the sysloging
+  //return;
+  SysLogInit(&Serial5,LOG_DEBUG); //use SWO for the sysloging
   LOG("SErial up!");
+  SerialUSB.println("starting begin");
   stepperCtrl.begin(); //start controller before accepting step inputs
   LOG("command init!");
   commandsInit(); //setup command handler system

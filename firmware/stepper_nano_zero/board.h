@@ -18,14 +18,15 @@
 #define NZS_LCD_ABSOULTE_ANGLE  //define this to show angle from zero in positive and negative direction
 								// for example 2 rotations from start will be angle of 720 degrees
 
-#define VERSION "FW: 0.05" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.06" //this is what prints on LCD during splash screen
 
 
 /* change log
  *   0.02 added fixes for 0.9 degree motor
  *   0.03 added code for using error pin as an enable pin, enable feedback by default
  *   0.04
- *   0.05 added auto tune and different mode
+ *   0.05 added different modes added support for mechaduino
+ *   0.06 added time out pipeline read, add some error logging on encoder failure for mechaduino
  */
 
 //#define USE_ENABLE_PIN  //define this to use the error pin as enable

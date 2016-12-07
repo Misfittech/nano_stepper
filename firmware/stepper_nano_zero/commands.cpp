@@ -74,6 +74,7 @@ static int mode_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 		if (x>2) x=2;
 		stepperCtrl.setControlMode((feedbackCtrl_t)x);
 	}
+	CommandPrintf(ptrUart,"mode is %d\n\r",stepperCtrl.getControlMode());
 
 	return 0;
 }
