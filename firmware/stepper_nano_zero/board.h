@@ -44,14 +44,22 @@
 #else
 #define SerialUSB Serial
 #endif 
-
+#ifdef USE_3_3V_SIGNAL
+#define PIN_STEP_INPUT  (3) // D3
+#define PIN_DIR_INPUT   (20) // TX
+#else
 #define PIN_STEP_INPUT  (0)
 #define PIN_DIR_INPUT   (1)
+#endif
 
 #ifdef MECHADUINO_HARDWARE
 #define PIN_ERROR 		(19)  //analogInputToDigitalPin(PIN_A5))
 #else
+#ifdef USE_3_3V_SIGNAL
+#define PIN_ERROR		(21) // RX
+#else
 #define PIN_ERROR		(10)
+#endif
 #endif
 
 #define PIN_AS5047D_CS  (16)//analogInputToDigitalPin(PIN_A2))
