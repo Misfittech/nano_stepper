@@ -51,7 +51,7 @@
 #endif 
 #ifdef USE_3_3V_SIGNAL
 #define PIN_STEP_INPUT  (3) // D3
-#define PIN_DIR_INPUT   (20) // TX
+#define PIN_DIR_INPUT   (30) // TX
 #else
 #define PIN_STEP_INPUT  (0)
 #define PIN_DIR_INPUT   (1)
@@ -61,7 +61,7 @@
 #define PIN_ERROR 		(19)  //analogInputToDigitalPin(PIN_A5))
 #else
 #ifdef USE_3_3V_SIGNAL
-#define PIN_ERROR		(21) // RX
+#define PIN_ERROR		(31) // RX
 #else
 #define PIN_ERROR		(10)
 #endif
