@@ -695,12 +695,15 @@ void StepperCtrl::showSplash(void)
 	display.setTextColor(WHITE);
 
 	sprintf(str,"Misfit Tech");
-	//display.setCursor(0,DISPLAY_HEADER_OFFSET);
-	//display.println(str);
-	//sprintf(str,"Tech");
-	display.setCursor(0,DISPLAY_LINE(1));
+	display.setCursor(0,DISPLAY_LINE(0));
 	display.println(str);
+  sprintf(str,"http://misfittech.net");
+  display.setCursor(0,DISPLAY_LINE(1));
+  display.println(str);
+	sprintf(str,"Nano Zero Stepper PCB");
 	display.setCursor(0,DISPLAY_LINE(2));
+	display.println(str);
+	display.setCursor(0,DISPLAY_LINE(3));
 	display.println(VERSION);
 	display.display();
 #endif //no mechaduino
@@ -717,7 +720,7 @@ void StepperCtrl::clearAndShowHeader(void)
   display.setTextSize(1);
   display.setTextColor(WHITE);
 
-  sprintf(str,"Misfit Tech");
+  sprintf(str,"Misfit Tech Nano Zero");
   display.setCursor(0,0);
   display.println(str);
   display.setCursor(0,9);
