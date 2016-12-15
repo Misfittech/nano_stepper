@@ -14,6 +14,8 @@
 
 #define N_DATA (1024)
 
+#define DISPLAY_TEXT_SIZE 2
+
 typedef enum {
 	CTRL_OFF =0,
 	CTRL_SIMPLE = 1, //simple error controller

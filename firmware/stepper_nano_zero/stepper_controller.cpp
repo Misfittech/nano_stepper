@@ -402,7 +402,7 @@ void StepperCtrl::LCDShow(char *str)
 	return;
 #else
 	display.clearDisplay();
-	display.setTextSize(2);
+	display.setTextSize(DISPLAY_TEXT_SIZE);
 	display.setTextColor(WHITE);
 	display.setCursor(0,0);
 	display.println(str);
@@ -429,7 +429,7 @@ void StepperCtrl::UpdateLcd(void)
 
 	//sprintf(str,"uSteps %d", numMicroSteps);
 
-	display.setTextSize(2);
+	display.setTextSize(DISPLAY_TEXT_SIZE);
 	display.setTextColor(WHITE);
 
 	state=TC5_ISR_Enabled;
@@ -547,7 +547,7 @@ void StepperCtrl::menu(void)
 	while (!done)
 	{
 		display.clearDisplay();
-		display.setTextSize(2);
+		display.setTextSize(DISPLAY_TEXT_SIZE);
 		display.setTextColor(WHITE);
 
 		if (menuItem==0)
@@ -613,7 +613,7 @@ void StepperCtrl::menu(void)
 			{
 				case 0:
 					display.clearDisplay();
-					display.setTextSize(2);
+					display.setTextSize(DISPLAY_TEXT_SIZE);
 					display.setTextColor(WHITE);
 					display.setCursor(0,0);
 					display.println("Running");
@@ -625,7 +625,7 @@ void StepperCtrl::menu(void)
 				case 1:
 				{
 					display.clearDisplay();
-					display.setTextSize(2);
+					display.setTextSize(DISPLAY_TEXT_SIZE);
 					display.setTextColor(WHITE);
 					display.setCursor(0,0);
 					display.println("Testing");
@@ -638,7 +638,7 @@ void StepperCtrl::menu(void)
 					m=x/100;
 					y=abs(x-(m*100));
 					display.clearDisplay();
-					display.setTextSize(2);
+					display.setTextSize(DISPLAY_TEXT_SIZE);
 					display.setTextColor(WHITE);
 					display.setCursor(0,0);
 					display.println("Error");
@@ -670,7 +670,7 @@ void StepperCtrl::showCalError(void)
 	char str[100];
 
 	display.clearDisplay();
-	display.setTextSize(2);
+	display.setTextSize(DISPLAY_TEXT_SIZE);
 	display.setTextColor(WHITE);
 
 	sprintf(str,"Calibration");
@@ -691,13 +691,13 @@ void StepperCtrl::showSplash(void)
 	char str[100];
 
 	display.clearDisplay();
-	display.setTextSize(2);
+	display.setTextSize(DISPLAY_TEXT_SIZE);
 	display.setTextColor(WHITE);
 
-	sprintf(str,"Misfit");
-	display.setCursor(0,0);
-	display.println(str);
-	sprintf(str,"Tech");
+	sprintf(str,"Misfit Tech");
+	//display.setCursor(0,0);
+	//display.println(str);
+	//sprintf(str,"Tech");
 	display.setCursor(0,20);
 	display.println(str);
 	display.setCursor(0,40);
