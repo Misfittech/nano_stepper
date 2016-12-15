@@ -6,6 +6,11 @@
 //define this if you are using the Mechaduino
 //#define MECHADUINO_HARDWARE
 
+//define this if your step, dir and error input are 3.3v instead of 5v (Smoothie)
+//IMPORTANT NOTE: The pin labeled "D3" is STEP, the pin labeld "TX" is DIR and the pin labeled "RX" is ERROR.
+//The original STEP, DIR and ERROR pins will have no function
+#define USE_3_3V_SIGNAL
+
 #define NZS_FAST_CAL // define this to use 32k of flash for fast calibration table
 #define NZS_FAST_SINE //uses 2048 extra bytes to implement faster sine tables
 
@@ -44,14 +49,22 @@
 #else
 #define SerialUSB Serial
 #endif 
-
+#ifdef USE_3_3V_SIGNAL
+#define PIN_STEP_INPUT  (3) // D3
+#define PIN_DIR_INPUT   (30) // TX
+#else
 #define PIN_STEP_INPUT  (0)
 #define PIN_DIR_INPUT   (1)
+#endif
 
 #ifdef MECHADUINO_HARDWARE
 #define PIN_ERROR 		(19)  //analogInputToDigitalPin(PIN_A5))
 #else
+#ifdef USE_3_3V_SIGNAL
+#define PIN_ERROR		(31) // RX
+#else
 #define PIN_ERROR		(10)
+#endif
 #endif
 
 #define PIN_AS5047D_CS  (16)//analogInputToDigitalPin(PIN_A2))

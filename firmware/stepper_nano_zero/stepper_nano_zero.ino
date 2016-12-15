@@ -36,9 +36,10 @@ void setup() {
   boardSetupPins();
   int to=20;
   SerialUSB.begin(460800);
-  
+  #ifndef USE_3_3V_SIGNAL
   Serial5.begin(460800);
   SysLogInit(&Serial5,LOG_DEBUG); //use SWO for the sysloging
+  #endif
   LOG("Power up!");
   while (!SerialUSB) 
   {
@@ -51,7 +52,9 @@ void setup() {
    };     //wait for serial
 
   //return;
+  #ifndef USE_3_3V_SIGNAL
   SysLogInit(&Serial5,LOG_DEBUG); //use SWO for the sysloging
+  #endif
   LOG("SErial up!");
   SerialUSB.println("starting begin");
   stepperCtrl.begin(); //start controller before accepting step inputs
