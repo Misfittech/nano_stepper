@@ -14,7 +14,8 @@
 
 #define N_DATA (1024)
 
-#define DISPLAY_TEXT_SIZE 2
+#define DISPLAY_TEXT_SIZE 1
+#define DISPLAY_LINE_HEIGHT 10*DISPLAY_TEXT_SIZE
 
 typedef enum {
 	CTRL_OFF =0,
