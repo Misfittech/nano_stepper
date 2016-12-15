@@ -20,6 +20,8 @@
 // the Yellow/Blue SDD1306 has 19 pixels at the top that are for the yellow section
 #define DISPLAY_HEADER_OFFSET 19
 
+#define DISPLAY_LINE(LINENUM) (LINENUM*DISPLAY_LINE_HEIGHT)+DISPLAY_HEADER_OFFSET
+
 typedef enum {
 	CTRL_OFF =0,
 	CTRL_SIMPLE = 1, //simple error controller
