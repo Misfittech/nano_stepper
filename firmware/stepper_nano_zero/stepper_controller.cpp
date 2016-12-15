@@ -401,10 +401,10 @@ void StepperCtrl::LCDShow(char *str)
 #ifdef MECHADUINO_HARDWARE //mech does not have LCD
 	return;
 #else
-	display.clearDisplay();
+	clearAndShowHeader();
 	display.setTextSize(DISPLAY_TEXT_SIZE);
 	display.setTextColor(WHITE);
-	display.setCursor(0,0);
+	display.setCursor(0,DISPLAY_HEADER_OFFSET);
 	display.println(str);
 #endif
 }
@@ -424,7 +424,7 @@ void StepperCtrl::UpdateLcd(void)
 	int32_t d;
 	bool state;
 
-	display.clearDisplay();
+	clearAndShowHeader();
 
 
 	//sprintf(str,"uSteps %d", numMicroSteps);
@@ -490,7 +490,7 @@ void StepperCtrl::UpdateLcd(void)
 		sprintf(str, "%dRPM open",RPM);
 	}
 
-	display.setCursor(0,0);
+	display.setCursor(0,DISPLAY_HEADER_OFFSET);
 	display.println(str);
 
 
@@ -502,7 +502,7 @@ void StepperCtrl::UpdateLcd(void)
 	y=abs(err-x*100);
 
 	sprintf(str,"%01d.%02d err", x,y);
-	display.setCursor(0,DISPLAY_LINE_HEIGHT);
+	display.setCursor(0,DISPLAY_LINE_HEIGHT+DISPLAY_HEADER_OFFSET);
 	display.println(str);
 	//LOG("%s %d %d %d", str, err, x, y);
 	//
@@ -519,7 +519,7 @@ void StepperCtrl::UpdateLcd(void)
 
 	//LOG("deg is %d, %d, %d",deg, x, y);
 	sprintf(str,"%03d.%01ddeg", x,y);
-	display.setCursor(0,2*DISPLAY_LINE_HEIGHT);
+	display.setCursor(0,2*DISPLAY_LINE_HEIGHT + DISPLAY_HEADER_OFFSET);
 	display.println(str);
 
 	display.display();
@@ -546,43 +546,43 @@ void StepperCtrl::menu(void)
 
 	while (!done)
 	{
-		display.clearDisplay();
+		clearAndShowHeader();
 		display.setTextSize(DISPLAY_TEXT_SIZE);
 		display.setTextColor(WHITE);
 
 		if (menuItem==0)
 		{
 			sprintf(str,"*Run Cal");
-			display.setCursor(0,0);
+			display.setCursor(0,DISPLAY_HEADER_OFFSET);
 			display.println(str);
 		}else
 		{
 			sprintf(str," Run Cal");
-			display.setCursor(0,0);
+			display.setCursor(0,DISPLAY_HEADER_OFFSET);
 			display.println(str);
 		}
 
 		if (menuItem==1)
 		{
 			sprintf(str,"*Check Cal");
-			display.setCursor(0,DISPLAY_LINE_HEIGHT);
+			display.setCursor(0,DISPLAY_LINE_HEIGHT + DISPLAY_HEADER_OFFSET);
 			display.println(str);
 		}else
 		{
 			sprintf(str," Check Cal");
-			display.setCursor(0,DISPLAY_LINE_HEIGHT);
+			display.setCursor(0,DISPLAY_LINE_HEIGHT + DISPLAY_HEADER_OFFSET);
 			display.println(str);
 		}
 
 		if (menuItem==2)
 		{
 			sprintf(str,"*Exit");
-			display.setCursor(0,2*DISPLAY_LINE_HEIGHT);
+			display.setCursor(0,2*DISPLAY_LINE_HEIGHT + DISPLAY_HEADER_OFFSET);
 			display.println(str);
 		}else
 		{
 			sprintf(str," Exit");
-			display.setCursor(0,2*DISPLAY_LINE_HEIGHT);
+			display.setCursor(0,2*DISPLAY_LINE_HEIGHT + DISPLAY_HEADER_OFFSET);
 			display.println(str);
 		}
 
@@ -612,24 +612,24 @@ void StepperCtrl::menu(void)
 			switch(menuItem)
 			{
 				case 0:
-					display.clearDisplay();
+					clearAndShowHeader();
 					display.setTextSize(DISPLAY_TEXT_SIZE);
 					display.setTextColor(WHITE);
-					display.setCursor(0,0);
+					display.setCursor(0,DISPLAY_HEADER_OFFSET);
 					display.println("Running");
-					display.setCursor(0,DISPLAY_LINE_HEIGHT);
+					display.setCursor(0,DISPLAY_LINE_HEIGHT + DISPLAY_HEADER_OFFSET);
 					display.println("Cal");
 					display.display();
 					calibrateEncoder();
 					break;
 				case 1:
 				{
-					display.clearDisplay();
+					clearAndShowHeader();
 					display.setTextSize(DISPLAY_TEXT_SIZE);
 					display.setTextColor(WHITE);
-					display.setCursor(0,0);
+					display.setCursor(0,DISPLAY_HEADER_OFFSET);
 					display.println("Testing");
-					display.setCursor(0,DISPLAY_LINE_HEIGHT);
+					display.setCursor(0,DISPLAY_LINE_HEIGHT + DISPLAY_HEADER_OFFSET);
 					display.println("Cal");
 					display.display();
 					int32_t error,x,y,m;
@@ -637,14 +637,14 @@ void StepperCtrl::menu(void)
 					x=(error*100 *360)/ANGLE_STEPS;
 					m=x/100;
 					y=abs(x-(m*100));
-					display.clearDisplay();
+					clearAndShowHeader();
 					display.setTextSize(DISPLAY_TEXT_SIZE);
 					display.setTextColor(WHITE);
-					display.setCursor(0,0);
+					display.setCursor(0,DISPLAY_HEADER_OFFSET);
 					display.println("Error");
 
 					sprintf(str, "%02d.%02d deg",m,y);
-					display.setCursor(0,DISPLAY_LINE_HEIGHT);
+					display.setCursor(0,DISPLAY_LINE_HEIGHT + DISPLAY_HEADER_OFFSET);
 					display.println(str);
 					display.display();
 					while (digitalRead(PIN_SW3));
@@ -669,15 +669,15 @@ void StepperCtrl::showCalError(void)
 #else
 	char str[100];
 
-	display.clearDisplay();
+	clearAndShowHeader();
 	display.setTextSize(DISPLAY_TEXT_SIZE);
 	display.setTextColor(WHITE);
 
 	sprintf(str,"Calibration");
-	display.setCursor(0,0);
+	display.setCursor(0,DISPLAY_HEADER_OFFSET);
 	display.println(str);
 	sprintf(str,"Error");
-	display.setCursor(0,DISPLAY_LINE_HEIGHT);
+	display.setCursor(0,DISPLAY_LINE_HEIGHT + DISPLAY_HEADER_OFFSET);
 	display.println(str);
 	display.display();
 #endif
@@ -695,14 +695,33 @@ void StepperCtrl::showSplash(void)
 	display.setTextColor(WHITE);
 
 	sprintf(str,"Misfit Tech");
-	//display.setCursor(0,0);
+	//display.setCursor(0,DISPLAY_HEADER_OFFSET);
 	//display.println(str);
 	//sprintf(str,"Tech");
-	display.setCursor(0,DISPLAY_LINE_HEIGHT);
+	display.setCursor(0,DISPLAY_LINE_HEIGHT + DISPLAY_HEADER_OFFSET);
 	display.println(str);
-	display.setCursor(0,2*DISPLAY_LINE_HEIGHT);
+	display.setCursor(0,2*DISPLAY_LINE_HEIGHT + DISPLAY_HEADER_OFFSET);
 	display.println(VERSION);
 	display.display();
+#endif //no mechaduino
+}
+
+void StepperCtrl::clearAndShowHeader(void)
+{
+#ifdef MECHADUINO_HARDWARE //mech does not have LCD
+  return;
+#else
+  char str[100];
+
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+
+  sprintf(str,"Misfit Tech");
+  display.setCursor(0,0);
+  display.println(str);
+  display.setCursor(0,9);
+  display.println(VERSION);
 #endif //no mechaduino
 }
 

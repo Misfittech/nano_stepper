@@ -15,7 +15,10 @@
 #define N_DATA (1024)
 
 #define DISPLAY_TEXT_SIZE 1
-#define DISPLAY_LINE_HEIGHT 10*DISPLAY_TEXT_SIZE
+#define DISPLAY_LINE_HEIGHT (10*DISPLAY_TEXT_SIZE)
+
+// the Yellow/Blue SDD1306 has 19 pixels at the top that are for the yellow section
+#define DISPLAY_HEADER_OFFSET 19
 
 typedef enum {
 	CTRL_OFF =0,
@@ -92,6 +95,7 @@ class StepperCtrl
 
     //these are LCD functions
     void showSplash(void);
+    void clearAndShowHeader(void);
     void menu(void);
     void showCalError(void);
     int32_t measureMeanEncoder(void);

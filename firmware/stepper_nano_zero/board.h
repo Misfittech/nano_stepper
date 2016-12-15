@@ -9,7 +9,7 @@
 //define this if your step, dir and error input are 3.3v instead of 5v (Smoothie)
 //IMPORTANT NOTE: The pin labeled "D3" is STEP, the pin labeld "TX" is DIR and the pin labeled "RX" is ERROR.
 //The original STEP, DIR and ERROR pins will have no function
-//#define USE_3_3V_SIGNAL
+#define USE_3_3V_SIGNAL
 
 #define NZS_FAST_CAL // define this to use 32k of flash for fast calibration table
 #define NZS_FAST_SINE //uses 2048 extra bytes to implement faster sine tables
