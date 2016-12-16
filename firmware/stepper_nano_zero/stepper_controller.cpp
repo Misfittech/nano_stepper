@@ -1,12 +1,10 @@
 #include "stepper_controller.h"
-#ifndef MECHADUINO_HARDWARE
-#include <Adafruit_GFX.h>
-#include <gfxfont.h>
-#endif 
-
 
 #include "nonvolatile.h" //for programmable parameters
 #include <Wire.h>
+
+#pragma GCC push_options
+#pragma GCC optimize ("-Ofast")
 
 #define WAIT_TC16_REGS_SYNC(x) while(x->COUNT16.STATUS.bit.SYNCBUSY);
 
@@ -71,8 +69,26 @@ void disableTCInterrupts() {
 	TC5->COUNT16.INTENCLR.bit.OVF = 1;
 }
 
-void StepperCtrl::updatePIDs(void)
+bool enterCriticalSection()
 {
+	bool state=TC5_ISR_Enabled;
+	disableTCInterrupts();
+	return state;
+}
+
+void exitCriticalSection(bool prevState)
+{
+	if (prevState)
+	{
+		enableTCInterrupts();
+	} //else do nothing
+}
+
+
+void StepperCtrl::updateParamsFromNVM(void)
+{
+	bool state=enterCriticalSection();
+
 	pPID.Kd=NVM->pPID.Kd*CTRL_PID_SCALING;
 	pPID.Ki=NVM->pPID.Ki*CTRL_PID_SCALING;
 	pPID.Kp=NVM->pPID.Kp*CTRL_PID_SCALING;
@@ -85,6 +101,33 @@ void StepperCtrl::updatePIDs(void)
 	sPID.Ki=NVM->sPID.Ki*CTRL_PID_SCALING;
 	sPID.Kp=NVM->sPID.Kp*CTRL_PID_SCALING;
 
+	if (NVM->SystemParams.parametersVaild)
+	{
+		memcpy((void *)&systemParams, (void *)&NVM->SystemParams, sizeof(systemParams));
+	}else
+	{
+		ERROR("This should never happen but just in case");
+		systemParams.microsteps=16;
+		systemParams.controllerMode=CTRL_SIMPLE;
+		systemParams.dirPinRotation=CW_ROTATION; //default to clockwise rotation when dir is high
+		systemParams.errorLimit=(int32_t)ANGLE_FROM_DEGREES(1.8);
+		systemParams.errorPinMode=ERROR_PIN_MODE_ENABLE;  //default to enable pin
+	}
+
+	if (NVM->motorParams.parametersVaild)
+	{
+		memcpy((void *)&motorParams, (void *)&NVM->motorParams, sizeof(motorParams));
+	} else
+	{
+		motorParams.fullStepsPerRotation=200;
+		motorParams.currentHoldMa=1500;
+		motorParams.currentMa=2200;
+		motorParams.motorWiring=true;
+	}
+
+	stepperDriver.setRotationDirection(motorParams.motorWiring);
+
+	exitCriticalSection(state);
 }
 
 
@@ -93,26 +136,25 @@ void  StepperCtrl::motorReset(void)
 	//when we reset the motor we want to also sync the motor
 	// phase.  Therefore we move forward a few full steps then back
 	// to sync motor phasing, leaving the motor at "phase 0"
-	bool state=TC5_ISR_Enabled;
-	disableTCInterrupts();
+	bool state=enterCriticalSection();
 
-	stepperDriver.move(0,NVM->SystemParams.currentMa);
+	stepperDriver.move(0,motorParams.currentMa);
 	delay(100);
-	stepperDriver.move(A4954_NUM_MICROSTEPS,NVM->SystemParams.currentMa);
+	stepperDriver.move(A4954_NUM_MICROSTEPS,motorParams.currentMa);
 	delay(100);
-	stepperDriver.move(A4954_NUM_MICROSTEPS*2,NVM->SystemParams.currentMa);
+	stepperDriver.move(A4954_NUM_MICROSTEPS*2,motorParams.currentMa);
 	delay(100);
-	stepperDriver.move(A4954_NUM_MICROSTEPS*3,NVM->SystemParams.currentMa);
+	stepperDriver.move(A4954_NUM_MICROSTEPS*3,motorParams.currentMa);
 	delay(100);
-	stepperDriver.move(A4954_NUM_MICROSTEPS*2,NVM->SystemParams.currentMa);
+	stepperDriver.move(A4954_NUM_MICROSTEPS*2,motorParams.currentMa);
 	delay(100);
-	stepperDriver.move(A4954_NUM_MICROSTEPS,NVM->SystemParams.currentMa);
+	stepperDriver.move(A4954_NUM_MICROSTEPS,motorParams.currentMa);
 	delay(100);
-	stepperDriver.move(0,NVM->SystemParams.currentMa);
+	stepperDriver.move(0,motorParams.currentMa);
 	delay(500);
 
 	setLocationFromEncoder(); //measure new starting point
-	if (state) enableTCInterrupts();
+	exitCriticalSection(state);
 }
 
 void StepperCtrl::setLocationFromEncoder(void)
@@ -126,6 +168,7 @@ void StepperCtrl::setLocationFromEncoder(void)
 		Angle a;
 
 		//set our angles based on previous cal data
+
 		x=measureMeanEncoder();
 		a=calTable.fastReverseLookup(x);
 
@@ -133,7 +176,7 @@ void StepperCtrl::setLocationFromEncoder(void)
 		LOG("start angle %d, encoder %d", (uint16_t)a,x);
 
 		//TODO we need to handle 0.9 degree motor
-		if (CALIBRATION_TABLE_SIZE == fullStepsPerRotation)
+		if (CALIBRATION_TABLE_SIZE == motorParams.fullStepsPerRotation)
 		{
 			n=(int32_t)ANGLE_STEPS/CALIBRATION_TABLE_SIZE;
 
@@ -150,7 +193,7 @@ void StepperCtrl::setLocationFromEncoder(void)
 		LOG("start angle after rounding %d %d.%03d", (uint16_t)a,x/1000,x%1000);
 
 		//we need to set our numSteps
-		numSteps=DIVIDE_WITH_ROUND( ((int32_t)a *fullStepsPerRotation*numMicroSteps),ANGLE_STEPS);
+		numSteps=DIVIDE_WITH_ROUND( ((int32_t)a *motorParams.fullStepsPerRotation*systemParams.microsteps),ANGLE_STEPS);
 		currentLocation=(uint16_t)a;
 	}
 }
@@ -169,24 +212,30 @@ void StepperCtrl::encoderDiagnostics(char *ptrStr)
 //TODO This function does two things, set rotation direction
 //  and measures step size, it should be two functions.
 //return is anlge in degreesx100 ie 360.0 is returned as 36000
-uint16_t StepperCtrl::measureStepSize(void)
+float StepperCtrl::measureStepSize(void)
 {
 	int32_t angle1,angle2,x,i;
 	bool feedback=enableFeedback;
-	int32_t microsteps=numMicroSteps;
+	int32_t microsteps=systemParams.microsteps;
 
-	numMicroSteps=1;
+	systemParams.microsteps=1;
 	enableFeedback=false;
-	forwardWiring=true; //assume we are forward wiring to start with
+	motorParams.motorWiring=true; //assume we are forward wiring to start with
+	stepperDriver.setRotationDirection(motorParams.motorWiring);
 	/////////////////////////////////////////
 	//// Measure the full step size /////
 	/// Note we assume machine can take one step without issue///
 
+	LOG("reset motor");
 	motorReset(); //this puts stepper motor at stepAngle of zero
 
+	LOG("sample encoder");
 
 	angle1=measureMeanEncoder();
-	stepperDriver.move(A4954_NUM_MICROSTEPS,NVM->SystemParams.currentMa); //move one full step 'forward'
+
+	LOG("move");
+	stepperDriver.move(A4954_NUM_MICROSTEPS,motorParams.currentMa); //move one full step 'forward'
+	LOG("sample encoder");
 	angle2=measureMeanEncoder();
 
 	LOG("Angles %d %d",angle1,angle2);
@@ -206,26 +255,26 @@ uint16_t StepperCtrl::measureStepSize(void)
 	//when we are increase the steps in the  stepperDriver.move() command
 	// we want the encoder increasing. This ensures motor is moving clock wise
 	// when encoder is increasing.
-	if (angle2>angle1)
-	{
-		forwardWiring=true;
-		stepperDriver.setRotationDirection(true);
-		LOG("Forward rotating");
-	}else
-	{
-		//the motor is wired backwards so correct in stepperDriver
-		forwardWiring=false;
-		stepperDriver.setRotationDirection(false);
-		LOG("Reverse rotating");
-	}
-	x=(abs(angle2-angle1)*36000)/(int32_t)ANGLE_STEPS;
+	//	if (angle2>angle1)
+	//	{
+	//		motorParams.motorWiring=true;
+	//		stepperDriver.setRotationDirection(true);
+	//		LOG("Forward rotating");
+	//	}else
+	//	{
+	//		//the motor is wired backwards so correct in stepperDriver
+	//		motorParams.motorWiring=false;
+	//		stepperDriver.setRotationDirection(false);
+	//		LOG("Reverse rotating");
+	//	}
+	x=((int64_t)(angle2-angle1)*36000)/(int32_t)ANGLE_STEPS;
 	// if x is ~180 we have a 1.8 degree step motor, if it is ~90 we have 0.9 degree step
 	LOG("%angle delta %d %d (%d %d)",x,abs(angle2-angle1),angle1,angle2 );
 
-	numMicroSteps=microsteps;
+	systemParams.microsteps=microsteps;
 	enableFeedback=feedback;
 
-	return x;
+	return ((float)x)/100.0;
 }
 
 
@@ -236,17 +285,17 @@ int32_t StepperCtrl::measureError(void)
 	return ((int32_t)currentLocation-(int32_t)getDesiredLocation());
 }
 
+/*
 bool StepperCtrl::changeMicrostep(uint16_t microSteps)
 {
 	bool state=TC5_ISR_Enabled;
 	disableTCInterrupts();
-	numMicroSteps=microSteps;
+	systemParams.microsteps=microSteps;
 	motorReset();
 	if (state) enableTCInterrupts();
 	return true;
 }
-
-
+ */
 Angle StepperCtrl::maxCalibrationError(void)
 {
 	//Angle startingAngle;
@@ -256,7 +305,7 @@ Angle StepperCtrl::maxCalibrationError(void)
 	int16_t dist;
 	uint16_t angle=0;
 	bool feedback=enableFeedback;
-	uint16_t microSteps=numMicroSteps;
+	uint16_t microSteps=systemParams.microsteps;
 	int32_t steps;
 	bool state=TC5_ISR_Enabled;
 	disableTCInterrupts();
@@ -271,7 +320,7 @@ Angle StepperCtrl::maxCalibrationError(void)
 	j=0;
 	LOG("Running calibration test");
 
-	numMicroSteps=1;
+	systemParams.microsteps=1;
 	motorReset();
 	steps=0;
 
@@ -298,12 +347,12 @@ Angle StepperCtrl::maxCalibrationError(void)
 		updateStep(0,1);
 
 		steps+=A4954_NUM_MICROSTEPS;
-		stepperDriver.move(steps,NVM->SystemParams.currentMa);
-		if (400==fullStepsPerRotation)
+		stepperDriver.move(steps,motorParams.currentMa);
+		if (400==motorParams.fullStepsPerRotation)
 		{
 			updateStep(0,1);
 			steps=steps+A4954_NUM_MICROSTEPS;
-			stepperDriver.move(steps,NVM->SystemParams.currentMa);
+			stepperDriver.move(steps,motorParams.currentMa);
 		}
 		//delay(400);
 
@@ -320,7 +369,7 @@ Angle StepperCtrl::maxCalibrationError(void)
 
 
 	}
-	numMicroSteps=microSteps;
+	systemParams.microsteps=microSteps;
 	motorReset();
 	enableFeedback=feedback;
 	if (state) enableTCInterrupts();
@@ -342,26 +391,26 @@ bool StepperCtrl::calibrateEncoder(void)
 	bool done=false;
 
 	int32_t mean;
-	uint16_t microSteps=numMicroSteps;
+	uint16_t microSteps=systemParams.microsteps;
 	bool feedback=enableFeedback;
 	bool state=TC5_ISR_Enabled;
 
 	disableTCInterrupts();
 
 	enableFeedback=false;
-	numMicroSteps=1;
+	systemParams.microsteps=1;
 	LOG("reset motor");
 	motorReset();
 	LOG("Starting calibration");
+	delay(200);
 	steps=0;
-
-	LOG("Starting calibration");
 	j=0;
 	while(!done)
 	{
 		Angle cal,desiredAngle;
 		desiredAngle=(uint16_t)(getDesiredLocation() & 0x0FFFFLL);
 		cal=calTable.getCal(desiredAngle);
+		//delay(200);
 		mean=measureMeanEncoder();
 
 		LOG("Previous cal distance %d, %d, mean %d, cal %d",j, cal-Angle((uint16_t)mean), mean, (uint16_t)cal);
@@ -370,12 +419,13 @@ bool StepperCtrl::calibrateEncoder(void)
 
 		updateStep(0,1);
 		steps=steps+A4954_NUM_MICROSTEPS;
-		stepperDriver.move(steps,NVM->SystemParams.currentMa);
-		if (400==fullStepsPerRotation)
+		//LOG("move %d %d",steps,motorParams.currentMa );
+		stepperDriver.move(steps,motorParams.currentMa);
+		if (400==motorParams.fullStepsPerRotation)
 		{
 			updateStep(0,1);
 			steps=steps+A4954_NUM_MICROSTEPS;
-			stepperDriver.move(steps,NVM->SystemParams.currentMa);
+			stepperDriver.move(steps,motorParams.currentMa);
 		}
 
 		j++;
@@ -389,423 +439,109 @@ bool StepperCtrl::calibrateEncoder(void)
 	calTable.saveToFlash(); //saves the calibration to flash
 	calTable.printCalTable();
 
-	numMicroSteps=microSteps;
+	systemParams.microsteps=microSteps;
 	motorReset();
 	enableFeedback=feedback;
 	if (state) enableTCInterrupts();
 	return done;
 }
 
-void StepperCtrl::LCDShow(char *str)
-{
-#ifdef MECHADUINO_HARDWARE //mech does not have LCD
-	return;
-#else
-	display.clearDisplay();
-	display.setTextSize(2);
-	display.setTextColor(WHITE);
-	display.setCursor(0,0);
-	display.println(str);
-#endif
-}
-
-void StepperCtrl::UpdateLcd(void)
-{
-#ifdef MECHADUINO_HARDWARE //mech does not have LCD
-	return;
-#else
-	char str[100];
-	static int highRPM=0;
-	int32_t deg,x,y,err;
-
-	int32_t lastAngle=0;
-	static int32_t RPM=0;
-	int32_t lasttime=0;
-	int32_t d;
-	bool state;
-
-	display.clearDisplay();
-
-
-	//sprintf(str,"uSteps %d", numMicroSteps);
-
-	display.setTextSize(2);
-	display.setTextColor(WHITE);
-
-	state=TC5_ISR_Enabled;
-	disableTCInterrupts();
-	lastAngle=getDesiredLocation();
-	lasttime=millis();
-	if (state) enableTCInterrupts();
-	delay(100);
-
-	state=TC5_ISR_Enabled;
-	disableTCInterrupts();
-	deg=getDesiredLocation();
-	err=measureError();
-	y=millis()-lasttime;
-	if (state) enableTCInterrupts();
 
 
 
-	d=(int32_t)(Angle(Angle(lastAngle)-Angle(deg)));
 
-	while (d>ANGLE_STEPS/2)
-	{
-		d=ANGLE_STEPS-d;
-	}
-
-	while (d<-ANGLE_STEPS/2)
-	{
-		d=ANGLE_STEPS+d;
-	}
-
-	x=(d*(60*1000UL))/(y * ANGLE_STEPS);
-
-	//filter out errors which have high RPMs
-	if ((x-RPM)>500 && highRPM==0)
-	{
-		LOG("high RPMs, %d %d %d %d %d", y, lastAngle, deg,x,d);
-		highRPM=1;
-		x=0;
-	}else
-	{
-		highRPM=0;
-	}
-	lastAngle=deg;
-	RPM=x; //(7*RPM+x)/8; //average RPMs
-	if (enableFeedback)
-	{
-		if (controlType==CTRL_SIMPLE)
-		{
-			sprintf(str, "%dRPM simp",RPM);
-
-		}else if(controlType==CTRL_POS_PID)
-		{
-			sprintf(str, "%dRPM pPID",RPM);
-		}
-	}
-	if ((false==enableFeedback) || (controlType==CTRL_OFF))
-	{
-		sprintf(str, "%dRPM open",RPM);
-	}
-
-	display.setCursor(0,0);
-	display.println(str);
-
-
-	//LOG("error is %d",err);
-
-
-	err=(err*360*100)/(int32_t)ANGLE_STEPS;
-	x=err/100;
-	y=abs(err-x*100);
-
-	sprintf(str,"%01d.%02d err", x,y);
-	display.setCursor(0,20);
-	display.println(str);
-	//LOG("%s %d %d %d", str, err, x, y);
-	//
-	//	sprintf(str,"%01d.%02d Amps", NVM->SystemParams.currentMa/1000, NVM->SystemParams.currentMa%1000);
-	//	display.setCursor(0,20);
-	//	display.println(str);
-#ifndef NZS_LCD_ABSOULTE_ANGLE
-	deg=deg & ANGLE_MAX; //limit to 360 degrees
-#endif
-
-	deg=(deg*360*10)/(int32_t)ANGLE_STEPS;
-	x=(deg)/10;
-	y=abs(deg-(x*10));
-
-	//LOG("deg is %d, %d, %d",deg, x, y);
-	sprintf(str,"%03d.%01ddeg", x,y);
-	display.setCursor(0,40);
-	display.println(str);
-
-	display.display();
-
-#endif //not mechaduino
-}
-
-//does the LCD menu system
-void StepperCtrl::menu(void)
-{
-#ifdef MECHADUINO_HARDWARE //mech does not have LCD
-	return;
-#else
-	bool done=false;
-	int menuItem=0;
-	char str[100];
-	int sw1State=0;
-	int sw3State=0;
-
-	pinMode(PIN_SW1, INPUT_PULLUP);
-	pinMode(PIN_SW3, INPUT_PULLUP);
-	pinMode(PIN_SW4, INPUT_PULLUP);
-
-
-	while (!done)
-	{
-		display.clearDisplay();
-		display.setTextSize(2);
-		display.setTextColor(WHITE);
-
-		if (menuItem==0)
-		{
-			sprintf(str,"*Run Cal");
-			display.setCursor(0,0);
-			display.println(str);
-		}else
-		{
-			sprintf(str," Run Cal");
-			display.setCursor(0,0);
-			display.println(str);
-		}
-
-		if (menuItem==1)
-		{
-			sprintf(str,"*Check Cal");
-			display.setCursor(0,20);
-			display.println(str);
-		}else
-		{
-			sprintf(str," Check Cal");
-			display.setCursor(0,20);
-			display.println(str);
-		}
-
-		if (menuItem==2)
-		{
-			sprintf(str,"*Exit");
-			display.setCursor(0,40);
-			display.println(str);
-		}else
-		{
-			sprintf(str," Exit");
-			display.setCursor(0,40);
-			display.println(str);
-		}
-
-		display.display();
-
-		if (sw1State==1)
-		{
-			while (digitalRead(PIN_SW1)==0);
-			sw1State=0;
-		}
-
-		if (digitalRead(PIN_SW1)==0)
-		{
-			sw1State=1;
-			menuItem=(menuItem+1)%3;
-		}
-
-		if (sw3State==1)
-		{
-			while (digitalRead(PIN_SW3)==0);
-			sw3State=0;
-		}
-
-		if (digitalRead(PIN_SW3)==0)
-		{
-			sw3State=1;
-			switch(menuItem)
-			{
-				case 0:
-					display.clearDisplay();
-					display.setTextSize(2);
-					display.setTextColor(WHITE);
-					display.setCursor(0,0);
-					display.println("Running");
-					display.setCursor(0,20);
-					display.println("Cal");
-					display.display();
-					calibrateEncoder();
-					break;
-				case 1:
-				{
-					display.clearDisplay();
-					display.setTextSize(2);
-					display.setTextColor(WHITE);
-					display.setCursor(0,0);
-					display.println("Testing");
-					display.setCursor(0,20);
-					display.println("Cal");
-					display.display();
-					int32_t error,x,y,m;
-					error=maxCalibrationError();
-					x=(error*100 *360)/ANGLE_STEPS;
-					m=x/100;
-					y=abs(x-(m*100));
-					display.clearDisplay();
-					display.setTextSize(2);
-					display.setTextColor(WHITE);
-					display.setCursor(0,0);
-					display.println("Error");
-
-					sprintf(str, "%02d.%02d deg",m,y);
-					display.setCursor(0,20);
-					display.println(str);
-					display.display();
-					while (digitalRead(PIN_SW3));
-					break;
-				}
-				case 2:
-					return;
-					break;
-
-			}
-
-		}
-
-	}
-#endif
-}
-
-void StepperCtrl::showCalError(void)
-{
-#ifdef MECHADUINO_HARDWARE
-  return;
-#else
-	char str[100];
-
-	display.clearDisplay();
-	display.setTextSize(2);
-	display.setTextColor(WHITE);
-
-	sprintf(str,"Calibration");
-	display.setCursor(0,0);
-	display.println(str);
-	sprintf(str,"Error");
-	display.setCursor(0,20);
-	display.println(str);
-	display.display();
-#endif
-}
-
-void StepperCtrl::showSplash(void)
-{
-#ifdef MECHADUINO_HARDWARE //mech does not have LCD
-	return;
-#else
-	char str[100];
-
-	display.clearDisplay();
-	display.setTextSize(2);
-	display.setTextColor(WHITE);
-
-	sprintf(str,"Misfit");
-	display.setCursor(0,0);
-	display.println(str);
-	sprintf(str,"Tech");
-	display.setCursor(0,20);
-	display.println(str);
-	display.setCursor(0,40);
-	display.println(VERSION);
-	display.display();
-#endif //no mechaduino
-}
-
-
-int StepperCtrl::begin(void)
+stepCtrlError_t StepperCtrl::begin(void)
 {
 	int i;
-	int32_t x;
+	float x;
 
-	enableFeedback=true;
-	forwardWiring=true; //assume we are forward wiring to start with
 
-	degreesPerFullStep=0;
+	enableFeedback=false;
+
 	currentLocation=0;
 	numSteps=0;
-	currentLimit=false;
 
-#ifndef MECHADUINO_HARDWARE //mech does not have LCD
-	display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-	Wire.setClock(800000);
-	showSplash();
-#endif
-
-
+	LOG("start stepper driver");
 	stepperDriver.begin();
-	//stepperDriver.limitCurrent(99);
-	fullStepsPerRotation=200;
 
-	LOG("NVM calvalid %d", NVM->CalibrationTable.status);
-	LOG("NVM cal[0] %d", NVM->CalibrationTable.table[0]);
-
-	if (false == NVM->sPID.parametersVaild)
+	LOG("start up encoder");
+	if (false == encoder.begin(PIN_AS5047D_CS))
 	{
-		nvmWrite_sPID(1.0,0.001, 0.01);
+		return STEPCTRL_NO_ENCODER;
 	}
 
-	if (false == NVM->pPID.parametersVaild)
-	{
-		nvmWrite_pPID(1.0, 0, 0);
-	}
-
-	if (false == NVM->vPID.parametersVaild)
-	{
-		nvmWrite_vPID(1.0, 0, 0);
-	}
-
-
-	updatePIDs(); //update the local cache from the NVM
-
-	if (false == NVM->SystemParams.parametersVaild)
-	{
-		nvmWriteSystemParms(2500,1500,327);
-	}
-	//UpdateLcd();
-
-	encoder.begin(PIN_AS5047D_CS);
+	LOG("cal table init");
 	calTable.init();
 
+	//we have to update from NVM before moving motor
+	updateParamsFromNVM(); //update the local cache from the NVM
 
-	changeMicrostep(1);
+	LOG("measuring step size");
 	x=measureStepSize();
-
-	if (x>050 && x<130)
+	if (abs(x)<0.5)
 	{
-		degreesPerFullStep= ANGLE_FROM_DEGREES(0.9);
-		fullStepsPerRotation=400;
-		LOG("Motor appears to be 0.9 degree per step");
-	}else
-	{
-		//assume we have a 1.8 degree motor (which is most common for 3D printers)
-		degreesPerFullStep= ANGLE_FROM_DEGREES(1.8);
-		fullStepsPerRotation=200;
-		LOG("Motor appears to be 1.8 degree per step");
+		ERROR("Motor may not have power");
+		return STEPCTRL_NO_POWER;
 	}
 
-#ifndef MECHADUINO_HARDWARE //mech does not have LCD
 
-	while (calTable.calValid() == false)
+
+	LOG("Checking the motor parameters");
+	//todo we might want to move this up a level to the NZS
+	//  especially since it has default values
+	if (false == NVM->motorParams.parametersVaild)
 	{
-		enableFeedback=false;
-		showCalError(); //show calibration error
-		delay(1000); //wait so user sees it
-		menu(); //run the menu as long as calibration is not valid
+		MotorParams_t params;
+		WARNING("NVM motor parameters are not set, we will update");
+
+		//power could have just been applied and step size read wrong
+		// if we are more than 200 steps/rotation which is most common
+		// lets read again just to be sure.
+		if (abs(x)<1.5)
+		{
+			//run step test a second time to be sure
+			x=measureStepSize();
+		}
+
+		if (x>0)
+		{
+			motorParams.motorWiring=true;
+		} else
+		{
+			motorParams.motorWiring=false;
+		}
+		if (abs(x)<=1.2)
+		{
+			motorParams.fullStepsPerRotation=400;
+		}else
+		{
+			motorParams.fullStepsPerRotation=200;
+		}
+
+		memcpy((void *)&params, (void *)&motorParams,sizeof(motorParams));
+		nvmWriteMotorParms(params);
 	}
-#endif
 
-	//verify the calbiration is good which forces a flash update
-	if (calTable.calValid() == false)
+	LOG("Motor params are now good");
+	LOG("fullSteps %d", motorParams.fullStepsPerRotation);
+	LOG("motorWiring %d", motorParams.motorWiring);
+	LOG("currentMa %d", motorParams.currentMa);
+	LOG("holdCurrentMa %d", motorParams.currentHoldMa);
+
+
+	updateParamsFromNVM(); //update the local cache from the NVM
+
+
+	if (false == calTable.calValid())
 	{
-		SerialUSB.println("Not Calibrated");
-		ERROR("Not calibrated");
-		enableFeedback=false;
-	} else
-	{
-		enableFeedback=true;
+		return STEPCTRL_NO_CAL;
 	}
 
-	//turn microstepping on
-	changeMicrostep(16);
-	motorReset();
 
+	enableFeedback=true;
 	setupTCInterrupts();
 	enableTCInterrupts();
+	return STEPCTRL_NO_ERROR;
 
 }
 
@@ -814,6 +550,8 @@ Angle StepperCtrl::sampleAngle(void)
 	uint16_t angle;
 
 #ifdef NZS_AS5047_PIPELINE
+	//read encoder twice such that we get the latest sample as the pipeline is always once sample behind
+	encoder.readEncoderAnglePipeLineRead(); //convert the 14 bit encoder value to a 16 bit number
 	angle=((uint32_t)encoder.readEncoderAnglePipeLineRead())<<2; //convert the 14 bit encoder value to a 16 bit number
 #else
 	angle=((uint32_t)encoder.readEncoderAngle())<<2; //convert the 14 bit encoder value to a 16 bit number
@@ -827,15 +565,15 @@ Angle StepperCtrl::sampleAngle(void)
 Angle StepperCtrl::sampleMeanEncoder(uint32_t numSamples)
 {
 	Angle last, a;
-	int i;
+	uint32_t i;
 	int32_t mean=0;
 
-	last=sampleAngle();
+	last=(Angle)(((uint32_t)encoder.readEncoderAngle())<<2);
 	mean=(int32_t)last;
 	for (i=0; i<(numSamples-1); i++)
 	{
 		int32_t d;
-		d=last-sampleAngle(); //take the difference which handles roll over
+		d=last-(Angle)(((uint32_t)encoder.readEncoderAngle())<<2); //take the difference which handles roll over
 		mean=mean+((int32_t)last+d);
 	}
 	return Angle(mean/numSamples);
@@ -872,10 +610,17 @@ void StepperCtrl::requestStep(int dir, uint16_t steps)
 	state=TC5_ISR_Enabled;
 	disableTCInterrupts();
 
-	updateStep(dir,steps);
+	if (dir)
+	{
+		numSteps-=steps;
+	}else
+	{
+		numSteps+=steps;
+	}
+
 	if (false == enableFeedback)
 	{
-		moveToAngle(getDesiredLocation(),NVM->SystemParams.currentMa);
+		moveToAngle(getDesiredLocation(),motorParams.currentMa);
 	}
 	if (state) enableTCInterrupts();
 }
@@ -892,9 +637,9 @@ void StepperCtrl::move(int dir, uint16_t steps)
 
 	if (false == enableFeedback)
 	{
-		n=numMicroSteps;
+		n=systemParams.microsteps;
 		ret=((int64_t)numSteps * A4954_NUM_MICROSTEPS+(n/2))/n;
-		n=A4954_NUM_MICROSTEPS*fullStepsPerRotation;
+		n=A4954_NUM_MICROSTEPS*motorParams.fullStepsPerRotation;
 		while(ret>n)
 		{
 			ret-=n;
@@ -905,9 +650,9 @@ void StepperCtrl::move(int dir, uint16_t steps)
 		}
 		n=(int32_t)(ret);
 		LOG("s is %d %d",n,steps);
-		stepperDriver.move(n,NVM->SystemParams.currentMa);
+		stepperDriver.move(n,motorParams.currentMa);
 	}
-	currentLimit=false;
+
 
 }
 
@@ -919,7 +664,7 @@ int64_t StepperCtrl::getDesiredLocation(void)
 	int32_t n;
 	bool state=TC5_ISR_Enabled;
 	disableTCInterrupts();
-	n=fullStepsPerRotation * numMicroSteps;
+	n=motorParams.fullStepsPerRotation * systemParams.microsteps;
 	ret=((int64_t)numSteps * (int64_t)ANGLE_STEPS+(n/2))/n;
 	if (state) enableTCInterrupts();
 	return ret;
@@ -943,7 +688,7 @@ int32_t StepperCtrl::measureMeanEncoder(void)
 		x=(int32_t)((uint16_t)encoder.readEncoderAngle())<<2; //convert the 14 bit encoder value to a 16 bit number
 		if (encoder.getError())
 		{
-			LCDShow("AS5047 Error");
+
 			SerialUSB.println("AS5047 Error");
 			delay(1000);
 			return 0;
@@ -969,7 +714,7 @@ int32_t StepperCtrl::measureMeanEncoder(void)
 
 }
 
-
+/*
 #define N_SAMPLES (1000)
 int StepperCtrl::measure(void)
 {
@@ -994,7 +739,7 @@ int StepperCtrl::measure(void)
 	return 0;
 }
 
-
+ */
 
 
 void StepperCtrl::moveToAbsAngle(int32_t a)
@@ -1003,7 +748,7 @@ void StepperCtrl::moveToAbsAngle(int32_t a)
 	int64_t ret;
 	int32_t n;
 
-	n=fullStepsPerRotation * numMicroSteps;
+	n=motorParams.fullStepsPerRotation * systemParams.microsteps;
 
 	ret=((int64_t)a*n)/(int32_t)ANGLE_STEPS;
 	numSteps=ret;
@@ -1015,15 +760,15 @@ void StepperCtrl::moveToAngle(int32_t a, uint32_t ma)
 	a=a % ANGLE_STEPS;  //we only interested in the current angle
 
 
-	a=DIVIDE_WITH_ROUND( (a*fullStepsPerRotation*A4954_NUM_MICROSTEPS), ANGLE_STEPS);
+	a=DIVIDE_WITH_ROUND( (a*motorParams.fullStepsPerRotation*A4954_NUM_MICROSTEPS), ANGLE_STEPS);
 
 	//LOG("move %d %d",a,ma);
 	stepperDriver.move(a,ma);
-	currentLimit=false;
+
 }
 
 
-int32_t StepperCtrl::getCurrentLocation(void)
+int64_t StepperCtrl::getCurrentLocation(void)
 {
 	Angle a;
 	int32_t x;
@@ -1040,7 +785,7 @@ int32_t StepperCtrl::getCurrentLocation(void)
 	{
 		currentLocation += ANGLE_STEPS;
 	}
-	currentLocation=(currentLocation & 0xFFFF0000UL) | (uint16_t)a;
+	currentLocation=(currentLocation & 0xFFFFFFFFFFFF0000UL) | (uint16_t)a;
 	if (state) enableTCInterrupts();
 	return currentLocation;
 
@@ -1048,13 +793,107 @@ int32_t StepperCtrl::getCurrentLocation(void)
 
 float StepperCtrl::getCurrentAngle(void)
 {
-	int32_t x;
+	int64_t x;
 	float f;
 	x=getCurrentLocation();
 	f=(x*360.0)/(float)ANGLE_STEPS;
 	return f;
 }
 
+void StepperCtrl::setVelocity(int64_t vel)
+{
+	bool state=enterCriticalSection();
+
+	velocity=vel;
+	exitCriticalSection(state);
+}
+
+int64_t StepperCtrl::getVelocity(void)
+{
+	int64_t vel;
+	bool state=enterCriticalSection();
+
+	vel=velocity;
+	exitCriticalSection(state);
+	return vel;
+}
+
+//this is the velocity PID feedback loop
+bool StepperCtrl::vpidFeedback(void)
+{
+	int32_t fullStep=ANGLE_STEPS/motorParams.fullStepsPerRotation;
+	static int64_t lastY=getCurrentLocation();
+	static int32_t lastError=0;
+	static int64_t Iterm=0;
+	int64_t y,z;
+	int32_t v,dy;
+	int64_t u;
+
+	//get the current location
+	y =getCurrentLocation();
+
+	v=y-lastY;
+
+	dy=(y-lastY);
+	z=y+dy; //predict where we are for phase advancement
+
+	lastY=y;
+
+	v=v*NZS_CONTROL_LOOP_HZ;
+
+
+	if (enableFeedback) //if ((micros()-lastCall)>(updateRate/10))
+	{
+		int32_t error,U;
+		error = velocity-v;
+
+
+		Iterm += (vPID.Ki * error);
+		if (Iterm>(16*4096*CTRL_PID_SCALING *motorParams.currentMa))
+		{
+			Iterm=(16*4096*CTRL_PID_SCALING *motorParams.currentMa);
+		}
+		if (Iterm<-(16*4096*CTRL_PID_SCALING *motorParams.currentMa))
+		{
+			Iterm=-(16*4096*CTRL_PID_SCALING*motorParams.currentMa);
+		}
+
+		u=((vPID.Kp * error) + Iterm - (vPID.Kd *(lastError-error)));
+		U=abs(u)/CTRL_PID_SCALING/1024; //scale the error to make PID params close to 1.0;//scale the error to make PID params close to 1.0 by dividing by 1024
+
+		if (U>motorParams.currentMa)
+		{
+			U=motorParams.currentMa;
+		}
+
+
+
+
+		//when error is positive we need to move reverse direction
+		if (u>0)
+		{
+			z=z+(fullStep+dy/2);
+		}else
+		{
+			z=z-(fullStep+dy/2);
+
+		}
+
+		moveToAngle(z,U);
+		loopError=error;
+		lastError=error;
+	} else
+	{
+		lastError=0;
+		Iterm=0;
+	}
+
+	if (abs(lastError)>(systemParams.errorLimit))
+	{
+		return 1;
+	}
+	return 0;
+}
 
 
 //Since we are doing fixed point math our
@@ -1068,70 +907,66 @@ bool StepperCtrl::pidFeedback(void)
 	static int32_t maxError=0;
 	static int32_t lastError=0;
 	static int32_t Iterm=0;
-	int32_t y;
-
-	int32_t fullStep=ANGLE_STEPS/fullStepsPerRotation;
+	int64_t y;
+	static int64_t lastY=getCurrentLocation();
+	int32_t fullStep=ANGLE_STEPS/motorParams.fullStepsPerRotation;
+	int32_t dy;
 
 	y=getCurrentLocation();
+	dy=y-lastY;
+	lastY=y;
+	//y=y+dy;
 
 	if (enableFeedback) //if ((micros()-lastCall)>(updateRate/10))
 	{
-		int32_t error,u;
+		int64_t error,u;
 		int32_t U,x;
 
 		//error is in units of degrees when 360 degrees == 65536
-		error=measureError(); //error is currentPos-desiredPos
+		error=(getDesiredLocation()-y); //error is currentPos-desiredPos
 
 		Iterm+=(pPID.Ki * error);
 
-		x=Iterm;
-
 		//Over the long term we do not want error
 		// to be much more than our threshold
-		if (x> (NVM->SystemParams.currentMa*CTRL_PID_SCALING) )
+		if (Iterm> (motorParams.currentMa*CTRL_PID_SCALING) )
 		{
-			x=(NVM->SystemParams.currentMa*CTRL_PID_SCALING) ;
+			Iterm=(motorParams.currentMa*CTRL_PID_SCALING) ;
 		}
-		if (x<-(NVM->SystemParams.currentMa*CTRL_PID_SCALING)  )
+		if (Iterm<-(motorParams.currentMa*CTRL_PID_SCALING)  )
 		{
-			x=-(NVM->SystemParams.currentMa*CTRL_PID_SCALING) ;
+			Iterm=-(motorParams.currentMa*CTRL_PID_SCALING) ;
 		}
 
-		u=((pPID.Kp * error) + Iterm - (pPID.Kd *(error-lastError)));
+		u=((pPID.Kp * error) + Iterm - (pPID.Kd *(lastError-error)));
 
 		U=abs(u)/CTRL_PID_SCALING;
-		if (U>NVM->SystemParams.currentMa)
+		if (U>motorParams.currentMa)
 		{
-			U=NVM->SystemParams.currentMa;
+			U=motorParams.currentMa;
 		}
 
 		//when error is positive we need to move reverse direction
 		if (u>0)
 		{
-			y=y-fullStep;
+			y=y+fullStep;
 		}else
 		{
-			y=y+fullStep;
+			y=y-fullStep;
 
 		}
 
 		moveToAngle(y,U);
+		loopError=error;
 		lastError=error;
 
 	}else
-	{  //feedback system is not enabled
-		if (stepperDriver.microsSinceStep()>200)
-		{
-			if (false == currentLimit)
-			{
-				//stepperDriver.limitCurrent(99);
-				currentLimit=true;
-				LOG("current Limiting");
-			}
-		}
+	{
+		lastError=0;
+		Iterm=0;
 	}
 
-	if (abs(lastError)>(NVM->SystemParams.errorLimit))
+	if (abs(lastError)>(systemParams.errorLimit))
 	{
 		return 1;
 	}
@@ -1149,29 +984,34 @@ bool StepperCtrl::simpleFeedback(void)
 	static int32_t lastError=0;
 	static int32_t i=0;
 	static int32_t iTerm=0;
+	static int64_t lastY=getCurrentLocation();
 
-	int32_t fullStep=ANGLE_STEPS/fullStepsPerRotation;
-
-	int32_t y;
+	int32_t fullStep=ANGLE_STEPS/motorParams.fullStepsPerRotation;
 
 
+	int64_t y;
+	int32_t dy;
 
 	//estimate our current location based on the encoder
 	y=getCurrentLocation();
+	dy=y-lastY;
+	lastY=y;
+	y=y+dy;
 
 	if (enableFeedback)
 	{
-		int32_t error,u;
+		int64_t error;
+		int32_t u;
 		int32_t ma;
 
 		int32_t x;
 
 		//error is in units of degrees when 360 degrees == 65536
-		error=-measureError(); //error is currentPos-desiredPos
+		error=(getDesiredLocation()-y);//measureError(); //error is currentPos-desiredPos
 
 		data[i]=(int16_t)error;
 		i++;
-		if (i>N_DATA)
+		if (i>=N_DATA)
 		{
 			i=0;
 		}
@@ -1207,28 +1047,25 @@ bool StepperCtrl::simpleFeedback(void)
 			u=-fullStep;
 		}
 
-		ma=(abs(u)*(NVM->SystemParams.currentMa-NVM->SystemParams.currentHoldMa))/fullStep + NVM->SystemParams.currentHoldMa;
+		ma=(abs(u)*(motorParams.currentMa-motorParams.currentHoldMa))
+						/ fullStep + motorParams.currentHoldMa;
 
 		//ma=(abs(u)*(NVM->SystemParams.currentMa))/fullStep;
 
-		if (ma>NVM->SystemParams.currentMa)
+		if (ma>motorParams.currentMa)
 		{
-			ma=NVM->SystemParams.currentMa;
+			ma=motorParams.currentMa;
 		}
 
-		//ma=NVM->SystemParams.currentMa;
-		//		if (abs(u)<ANGLE_FROM_DEGREES(0.1))
-		//		{
-		//			u=u/2;
-		//		}
 		y=y+u;
 		moveToAngle(y,ma); //35us
 
 		lastError=error;
+		loopError=error;
 		//stepperDriver.limitCurrent(99);
 	}
 
-	if (abs(lastError)>(NVM->SystemParams.errorLimit))
+	if (abs(lastError)>(systemParams.errorLimit))
 	{
 		return 1;
 	}
@@ -1241,7 +1078,7 @@ void StepperCtrl::enable(bool enable)
 {
 	bool state=TC5_ISR_Enabled;
 	disableTCInterrupts();
-	uint16_t microSteps=numMicroSteps;
+	uint16_t microSteps=systemParams.microsteps;
 	bool feedback=enableFeedback;
 
 	enabled=enable;
@@ -1250,27 +1087,27 @@ void StepperCtrl::enable(bool enable)
 	if (enabled==false && enable==true) //if we are enabling previous disabled motor
 	{
 		enableFeedback=false;
-		numMicroSteps=1;
+		systemParams.microsteps=1;
 		LOG("reset motor");
 		motorReset();
 	}
 
-	numMicroSteps=microSteps;
+	systemParams.microsteps=microSteps;
 	enableFeedback=feedback;
 	if (state) enableTCInterrupts();
 }
 
+/*
 void StepperCtrl::testRinging(void)
 {
 	uint16_t c;
 	int32_t steps;
-	int32_t microSteps=numMicroSteps;
+	int32_t microSteps=systemParams.microsteps;
 	bool feedback=enableFeedback;
 
 	enableFeedback=false;
-	numMicroSteps=1;
+	systemParams.microsteps=1;
 	motorReset();
-
 	for (c=2000; c>10; c=c-10)
 	{
 		SerialUSB.print("Current ");
@@ -1280,17 +1117,18 @@ void StepperCtrl::testRinging(void)
 		currentLimit=false;
 		measure();
 	}
-	numMicroSteps=microSteps;
+	systemParams.microsteps=microSteps;
 	motorReset();
 	enableFeedback=feedback;
 }
+ */
 
 bool StepperCtrl::processFeedback(void)
 {
 	bool ret;
 	int32_t us;
 	us=micros();
-	switch (controlType)
+	switch (systemParams.controllerMode)
 	{
 		case CTRL_POS_PID:
 		{
@@ -1303,19 +1141,28 @@ bool StepperCtrl::processFeedback(void)
 			ret=simpleFeedback();
 			break;
 		}
-
+		case CTRL_POS_VELOCITY_PID:
+		{
+			ret=vpidFeedback();
+			break;
+		}
+		//TODO if disable feedback and someone switches mode
+		// they will have to turn feedback back on.
+		case CTRL_OFF:
+		{
+			enableFeedback=false;
+			break;
+		}
+		case CTRL_OPEN:
+		{
+			enableFeedback=false;
+			break;
+		}
 	}
 	loopTimeus=micros()-us;
 	return ret;
 }
-void StepperCtrl::setControlMode(feedbackCtrl_t mode)
-{
-	bool state=TC5_ISR_Enabled;
-	disableTCInterrupts();
-	controlType=mode;
-	LOG("mode set to %d",(int)mode);
-	if (state) enableTCInterrupts();
-}
+
 
 //auto tuning of PID parameters based on documentation here:
 // http://brettbeauregard.com/blog/2012/01/arduino-pid-autotune-library
@@ -1332,19 +1179,19 @@ void StepperCtrl::PID_Autotune(void)
 	int32_t angle;
 
 	//save previous state;
-	uint16_t microSteps=numMicroSteps;
+	uint16_t microSteps=systemParams.microsteps;
 	bool feedback=enableFeedback;
-	feedbackCtrl_t prevCtrl=controlType;
+	feedbackCtrl_t prevCtrl=systemParams.controllerMode;
 
 	//disable interrupts and feedback controller
 	bool state=TC5_ISR_Enabled;
 	disableTCInterrupts();
-	controlType=CTRL_POS_PID;
+	systemParams.controllerMode=CTRL_POS_PID;
 	enableFeedback=false;
 	motorReset();
 	//nvmWritePID(1,0,0,2);
 	//set the number of microsteps to 1
-	//numMicroSteps=1;
+	//systemParams.microsteps=1;
 	for (i=0; i<10; i++)
 	{
 		angle=getCurrentLocation();
@@ -1355,7 +1202,7 @@ void StepperCtrl::PID_Autotune(void)
 	//	threshold=NVM->PIDparams.Threshold;
 
 	//enableTCInterrupts();
-	moveToAngle(angle,NVM->SystemParams.currentMa);
+	moveToAngle(angle,motorParams.currentMa);
 
 
 	//moveToAngle(angle,NVM->SystemParams.currentMa);
@@ -1399,7 +1246,7 @@ void StepperCtrl::PID_Autotune(void)
 
 
 
-	stepperDriver.move(0,NVM->SystemParams.currentMa);
+	stepperDriver.move(0,motorParams.currentMa);
 	delay(1000);
 
 	//now we need to do the relay control
@@ -1408,12 +1255,12 @@ void StepperCtrl::PID_Autotune(void)
 		startAngle=getCurrentLocation();
 		LOG("Start %d", (int32_t)startAngle);
 	}
-	thres=startAngle + (int32_t)((ANGLE_STEPS/fullStepsPerRotation)*10/9);
+	thres=startAngle + (int32_t)((ANGLE_STEPS/motorParams.fullStepsPerRotation)*10/9);
 	LOG("Thres %d, start %d",(int32_t)thres,(int32_t)startAngle);
 	eMin=(int32_t)ANGLE_MAX;
 	eMax=-(int32_t)ANGLE_MAX;
 	int32_t reset=0;
-	int32_t force=(NVM->SystemParams.currentMa);
+	int32_t force=(motorParams.currentMa);
 
 	for (i=0; i<100; i++)
 	{
@@ -1421,7 +1268,7 @@ void StepperCtrl::PID_Autotune(void)
 		if (reset)
 		{
 			motorReset();
-			stepperDriver.move(0,NVM->SystemParams.currentMa);
+			stepperDriver.move(0,motorParams.currentMa);
 			delay(1000);
 			startAngle=getCurrentLocation();
 			LOG("Start %d", (int32_t)startAngle);
@@ -1441,12 +1288,12 @@ void StepperCtrl::PID_Autotune(void)
 		reset=0;
 
 		stepperDriver.move(A4954_NUM_MICROSTEPS,force);
-		//moveToAngle(startAngle+(ANGLE_STEPS/fullStepsPerRotation),force);
+		//moveToAngle(startAngle+(ANGLE_STEPS/motorParams.fullStepsPerRotation),force);
 		//stepperDriver.move(A4954_NUM_MICROSTEPS,NVM->SystemParams.currentMa);
 		t0=micros();
 
 		error=0;
-		while(error<=((ANGLE_STEPS/fullStepsPerRotation)/2+40))
+		while(error<=((ANGLE_STEPS/motorParams.fullStepsPerRotation)/2+40))
 		{
 			int32_t y;
 			y=getCurrentLocation();
@@ -1460,7 +1307,7 @@ void StepperCtrl::PID_Autotune(void)
 			{
 				eMax=error;
 			}
-			if (abs(error)>ANGLE_STEPS/fullStepsPerRotation*2)
+			if (abs(error)>ANGLE_STEPS/motorParams.fullStepsPerRotation*2)
 			{
 				LOG("large Error1 %d, %d, %d",error, y, startAngle);
 
@@ -1475,8 +1322,8 @@ void StepperCtrl::PID_Autotune(void)
 		//stepperDriver.move(0,NVM->SystemParams.currentMa);
 		t1=micros();
 
-		error=(ANGLE_STEPS/fullStepsPerRotation);
-		while(error>=((ANGLE_STEPS/fullStepsPerRotation)/2-40))
+		error=(ANGLE_STEPS/motorParams.fullStepsPerRotation);
+		while(error>=((ANGLE_STEPS/motorParams.fullStepsPerRotation)/2-40))
 		{
 			error=getCurrentLocation()-startAngle;
 			//LOG("Error2 %d",error);
@@ -1488,7 +1335,7 @@ void StepperCtrl::PID_Autotune(void)
 			{
 				eMax=error;
 			}
-			if (abs(error)>ANGLE_STEPS/fullStepsPerRotation*2)
+			if (abs(error)>ANGLE_STEPS/motorParams.fullStepsPerRotation*2)
 			{
 				LOG("large Error2 %d",error);
 				reset=1;
@@ -1507,8 +1354,8 @@ void StepperCtrl::PID_Autotune(void)
 	LOG("errorMax=%d",eMax);
 
 	motorReset();
-	controlType=prevCtrl;
-	numMicroSteps=microSteps;
+	systemParams.controllerMode=prevCtrl;
+	systemParams.microsteps=microSteps;
 	enableFeedback=feedback;
 	if (state) enableTCInterrupts();
 
@@ -1527,3 +1374,5 @@ void StepperCtrl::printData(void)
 	if (state) enableTCInterrupts();
 
 }
+
+#pragma GCC pop_options

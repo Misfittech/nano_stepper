@@ -4,8 +4,9 @@
 #include <Arduino.h>
 #include "syslog.h"
 
-#define FLASH_PAGE_SIZE (64)
-#define FLASH_ROW_SIZE (FLASH_PAGE_SIZE*4) //defined in the datasheet as 4x page size
+
+#define FLASH_PAGE_SIZE_NZS (64)
+#define FLASH_ROW_SIZE (FLASH_PAGE_SIZE_NZS*4) //defined in the datasheet as 4x page size
 
 #define FLASH_ALLOCATE(name, size) \
 	__attribute__((__aligned__(FLASH_ROW_SIZE))) \

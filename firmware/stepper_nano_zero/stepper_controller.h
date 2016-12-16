@@ -6,25 +6,22 @@
 #include "as5047d.h"
 #include "calibration.h"
 #include "A4954.h"
-
-#ifndef MECHADUINO_HARDWARE
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#endif 
+#include "nonvolatile.h"
 
 #define N_DATA (1024)
 
 typedef enum {
-	CTRL_OFF =0,
-	CTRL_SIMPLE = 1, //simple error controller
-	CTRL_POS_PID =2, //PID  Position controller
-} feedbackCtrl_t;
+	STEPCTRL_NO_ERROR=0,
+	STEPCTRL_NO_POWER=1, //no power to motor
+	STEPCTRL_NO_CAL=2, //calibration not set
+	STEPCTRL_NO_ENCODER=3, //encoder not working
+} stepCtrlError_t;
 
 
 typedef struct {
-	int32_t Kp;
-	int32_t Ki;
-	int32_t Kd;
+		int32_t Kp;
+		int32_t Ki;
+		int32_t Kd;
 } PID_t;
 
 //this scales the PID parameters from Flash to floating point
@@ -33,112 +30,97 @@ typedef struct {
 
 class StepperCtrl 
 {
-  private:
-	volatile bool enableFeedback; //true if we are using PID control algorithm
-    AS5047D encoder;
-    A4954 stepperDriver;
-#ifndef MECHADUINO_HARDWARE //mech does not have LCD
-    Adafruit_SSD1306 display;
-#endif
-    bool currentLimit;
-    volatile bool enabled;
+	private:
+		volatile bool enableFeedback; //true if we are using PID control algorithm
+		AS5047D encoder;
+		A4954 stepperDriver;
 
-    volatile feedbackCtrl_t controlType=CTRL_SIMPLE;
-
-    volatile int32_t loopTimeus; //time to run loop in microseconds
-
-    volatile int32_t numMicroSteps=16;
-    volatile int32_t fullStepsPerRotation=200;
-
-    volatile PID_t sPID;
-    volatile PID_t pPID;
-    volatile PID_t vPID;
-
-    volatile int64_t numSteps; //this is the number of steps we have taken from our start angle
+		volatile MotorParams_t motorParams;
+		volatile SystemParams_t systemParams;
+		volatile bool enabled;
 
 
-    volatile int32_t currentLocation; //estimate of the current location from encoder feedback
-    // the current location lower 16 bits is angle (0-360 degrees in 65536 steps) while upper
-    // bits is the number of full rotations.
+		volatile int32_t loopTimeus; //time to run loop in microseconds
 
-    //all angles are measured as 16 bit values ie degrees per bit is 360/(2^16)
-    int32_t degreesPerFullStep=0;  //number of degrees per step for stepper motor
-    							   //  this is estimated by the controller.
+		volatile PID_t sPID; //simple control loop PID parameters
+		volatile PID_t pPID; //positional current based PID control parameters
+		volatile PID_t vPID; //velocity PID control parameters
 
+		volatile int64_t numSteps; //this is the number of steps we have taken from our start angle
 
-    bool forwardWiring; //determines if the wiring is for forward rotation or reverse
-                        // This way forward motion is always clockwise.
+		volatile int32_t loopError;
 
+		volatile int64_t currentLocation; //estimate of the current location from encoder feedback
+		// the current location lower 16 bits is angle (0-360 degrees in 65536 steps) while upper
+		// bits is the number of full rotations.
 
-    volatile int16_t data[N_DATA];
+		//this is used for the velocity PID feedback
+		// units are in Angles/sec where 1 Angle=360deg/65536
+		volatile int64_t velocity;
 
-    //does linear interpolation of the encoder calibration table
-    int32_t getAngleCalibration(int32_t encoderAngle);
+		volatile int16_t data[N_DATA];
 
-    //updates the currentMeasuredAngle with our best guess where we are 
-    Angle sampleAngle(void);
-    Angle sampleMeanEncoder(uint32_t numSamples);
-    
-    uint16_t measureStepSize(void); //steps motor and estimates step size
-    uint32_t measureMaxCalibrationError(void);
-    void setLocationFromEncoder(void);
-    int64_t getDesiredLocation(void);
+		//does linear interpolation of the encoder calibration table
+		int32_t getAngleCalibration(int32_t encoderAngle);
 
-    void  motorReset(void);
-    void updateStep(int dir, uint16_t steps);
+		//updates the currentMeasuredAngle with our best guess where we are
+		Angle sampleAngle(void);
+		Angle sampleMeanEncoder(uint32_t numSamples);
 
-    //these are LCD functions
-    void showSplash(void);
-    void menu(void);
-    void showCalError(void);
-    int32_t measureMeanEncoder(void);
-    int32_t getCurrentLocation(void);
-    bool pidFeedback(void);
-    bool simpleFeedback(void);
-    void LCDShow(char *str);
-
-  public:
-    void updatePIDs(void);
-    CalibrationTable calTable;
-    void printData(void);
-
-    bool calibrateEncoder(void); //do manual calibration of the encoder
-    Angle maxCalibrationError(void); //measures the maximum calibration error as an angle
-
-    void moveToAbsAngle(int32_t a);
-    void moveToAngle(int32_t a, uint32_t ma);
-
-    int begin(void);
-
-    bool processFeedback(void); // does the feedback loop
-
-    void setControlMode(feedbackCtrl_t mode);
-    feedbackCtrl_t getControlMode(void) { return controlType;};
-
-    void requestStep(int dir, uint16_t steps); //requests a step, if feedback controller is off motor does not move
+		float measureStepSize(void); //steps motor and estimates step size
+		uint32_t measureMaxCalibrationError(void);
+		void setLocationFromEncoder(void);
 
 
-    int measure(void);
-    
+		int32_t measureMeanEncoder(void);
+		void  motorReset(void);
+		void updateStep(int dir, uint16_t steps);
 
 
-    bool changeMicrostep(uint16_t microSteps);
-    void feedback(bool enable);
-    bool getFeedback(void) {return enableFeedback;}
+		bool pidFeedback(void);
+		bool simpleFeedback(void);
+		bool vpidFeedback(void);
 
-    void encoderDiagnostics(char *ptrStr);
-    int32_t getMicroSteps(void) {return numMicroSteps;}
-    int32_t measureError(void);
-    void testRinging(void);
+	public:
+		void setVelocity(int64_t vel); //set velocity for vPID mode
+		int64_t getVelocity(void);
+		int32_t getLoopError(void) {return loopError;}; //assume atomic read
+		int64_t getCurrentLocation(void);
+		int64_t getDesiredLocation(void);
+		bool calibrationValid(void) { return calTable.calValid();}  //returns true if calbiration is good
 
-    float getCurrentAngle(void);
+		void updateParamsFromNVM(void);  //updates the parameters from NVM
+		CalibrationTable calTable;
+		void printData(void);
 
-    void move(int dir, uint16_t steps); //forces motor to move even if feedback controller is turned off.
-    void UpdateLcd(void); //this can be called from outside class
-    void enable(bool enable);
+		bool calibrateEncoder(void); //do manual calibration of the encoder
+		Angle maxCalibrationError(void); //measures the maximum calibration error as an angle
 
-    int32_t getLoopTime(void) { return loopTimeus;}
-    void PID_Autotune(void);
+		void moveToAbsAngle(int32_t a);
+		void moveToAngle(int32_t a, uint32_t ma);
+
+		stepCtrlError_t begin(void); //returns false if we can not use motor
+
+		bool processFeedback(void); // does the feedback loop
+
+		feedbackCtrl_t getControlMode(void) { return systemParams.controllerMode;};
+
+		void requestStep(int dir, uint16_t steps); //requests a step, if feedback controller is off motor does not move
+
+		void feedback(bool enable);
+		bool getFeedback(void) {return enableFeedback;}
+
+		void encoderDiagnostics(char *ptrStr);
+		int32_t measureError(void);
+
+		float getCurrentAngle(void);
+
+		void move(int dir, uint16_t steps); //forces motor to move even if feedback controller is turned off.
+		void enable(bool enable);
+
+		int32_t getLoopTime(void) { return loopTimeus;}
+
+		void PID_Autotune(void);
 
 };
 

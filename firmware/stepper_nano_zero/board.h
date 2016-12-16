@@ -18,8 +18,13 @@
 #define NZS_LCD_ABSOULTE_ANGLE  //define this to show angle from zero in positive and negative direction
 								// for example 2 rotations from start will be angle of 720 degrees
 
-#define VERSION "FW: 0.06" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.07" //this is what prints on LCD during splash screen
 
+#define SERIAL_BAUD (115200) //baud rate for the serial ports
+
+#ifdef MECHADUINO_HARDWARE
+#define DISABLE_LCD //define this to disable the LCD calls
+#endif
 
 /* change log
  *   0.02 added fixes for 0.9 degree motor
@@ -27,14 +32,50 @@
  *   0.04
  *   0.05 added different modes added support for mechaduino
  *   0.06 added time out pipeline read, add some error logging on encoder failure for mechaduino
+ *   0.07 many cahnges including
+ *   	- fixed error on display when doing a move 99999
+ *   	- added velocity and position PID modes
+ *   	- fixed LCD menu and put LCD code in own file
+ *   	- include LCD source files from adafruit as that ssd1306 need lcd resoultion fix
+ *   	- added motor parameters to NVM such step size and rotation are only check on first boot
+ *   	- added test on power up to see if motor power is applied.
+ *   	- added factory reset command
+ *   	- pPID is not stable in my testing.
+ *
+ *
  */
 
-//#define USE_ENABLE_PIN  //define this to use the error pin as enable
+
+/*
+ *  Typedefs that are used across multiple files/modules
+ */
+typedef enum {
+	CW_ROTATION=0,
+	CCW_ROTATION=1,
+} RotationDir_t;
+
+typedef enum {
+	ERROR_PIN_MODE_ENABLE=0, //error pin works like enable on step sticks
+	ERROR_PIN_MODE_ERROR=1,  //error pin is low when there is angle error
+	ERROR_PIN_MODE_BIDIR=2,   //error pin is bidirection open collector
+} ErrorPinMode_t;
+
+typedef enum {
+	CTRL_OFF =0, 	 //controller is disabled
+	CTRL_OPEN=1, 	 //controller is in open loop mode
+	CTRL_SIMPLE = 2, //simple error controller
+	CTRL_POS_PID =3, //PID  Position controller
+	CTRL_POS_VELOCITY_PID =4, //PID  Velocity controller
+} feedbackCtrl_t;
+
 
 // ******** TIMER USAGE ************
 //TCC0 is used for DAC PWM to the A4954
 //TCC1 can be used as PWM for the input pins on the A4954
 //TC5 is use for timing the control loop
+
+
+
 
 
 //mechaduio and Arduino Zero has defined serial ports differently than NZS

@@ -192,6 +192,7 @@ void CalibrationTable::loadFromFlash(void)
 
 bool CalibrationTable::flashGood(void)
 {
+	LOG("calibration table status is: %d",NVM->CalibrationTable.status);
 	return NVM->CalibrationTable.status;
 }
 
@@ -359,7 +360,7 @@ void CalibrationTable::updateTable(Angle actualAngle, Angle encoderValue)
 
 bool CalibrationTable::calValid(void)
 {
-	int i;
+	uint32_t i;
 	for (i=0; i<CALIBRATION_TABLE_SIZE; i++)
 	{
 		if (table[i].error == CALIBRATION_ERROR_NOT_SET)

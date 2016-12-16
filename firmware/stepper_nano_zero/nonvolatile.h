@@ -3,6 +3,8 @@
 
 #include "calibration.h"
 #include "board.h"
+
+
 typedef struct {
 	float Kp;
 	float Ki;
@@ -11,9 +13,19 @@ typedef struct {
 } PIDparams_t;
 
 typedef struct {
-	int32_t currentMa;
-	int32_t currentHoldMa;
-	int32_t errorLimit;
+	int32_t currentMa;   //maximum current for the motor
+	int32_t currentHoldMa; //hold current for the motor
+	bool motorWiring;  //forward wiring of motor or reverse
+	int32_t fullStepsPerRotation; //how many full steps per rotation is the motor
+	bool parametersVaild;
+} MotorParams_t;
+
+typedef struct {
+	int32_t microsteps;    //number of microsteps on the dir/step pin interface from host
+	RotationDir_t dirPinRotation;  //is the direction pin high for clockwise or counterClockWise
+	int32_t errorLimit;    //error limit before error pin asserts 65536==360degrees
+	ErrorPinMode_t errorPinMode;  //is error pin used for enable, error, or bidirectional
+	feedbackCtrl_t controllerMode; //feedback mode for the controller
 	bool parametersVaild;
 } SystemParams_t;
 
@@ -26,12 +38,13 @@ typedef struct {
 
 typedef struct {
 	FlashCalData_t CalibrationTable;
-	PIDparams_t sPID; //simple PID parameters
-	PIDparams_t pPID; //position PID parameters
-	PIDparams_t vPID; //velocity PID parameters
-	SystemParams_t SystemParams;
+	__attribute__((__aligned__(8))) PIDparams_t sPID; //simple PID parameters
+	__attribute__((__aligned__(8))) PIDparams_t pPID; //position PID parameters
+	__attribute__((__aligned__(8))) PIDparams_t vPID; //velocity PID parameters
+	__attribute__((__aligned__(8))) SystemParams_t SystemParams;
+	__attribute__((__aligned__(8))) MotorParams_t motorParams;
 #ifdef NZS_FAST_CAL
-	FastCal_t FastCal;
+	__attribute__((__aligned__(8))) FastCal_t FastCal;
 #endif
 } nvm_t;
 
@@ -46,7 +59,8 @@ bool nvmWriteCalTable(void *ptrData, uint32_t size);
 bool nvmWrite_sPID(float Kp, float Ki, float Kd);
 bool nvmWrite_pPID(float Kp, float Ki, float Kd);
 bool nvmWrite_vPID(float Kp, float Ki, float Kd);
-bool nvmWriteSystemParms(int32_t currentMa, int32_t currentHoldMa, int32_t errorLimit);
-
+bool nvmWriteSystemParms(SystemParams_t &systemParams);
+bool nvmWriteMotorParms(MotorParams_t &motorParams);
+bool nvmErase(void);
 
 #endif // __NONVOLATILE__H__

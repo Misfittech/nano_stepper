@@ -3,7 +3,6 @@
 #include <Arduino.h>
 
 
-
 //we use this so we can hard code calibration table
 // be sure to set the last word as status flag
 // this save time calibrating each time we do a code build
@@ -13,14 +12,13 @@ __attribute__((__aligned__(FLASH_ROW_SIZE))) const uint16_t NVM_flash[16640]={  
 __attribute__((__aligned__(FLASH_ROW_SIZE))) const uint16_t NVM_flash[256]={  //allocates 512 bytes
 #endif
 
-		//40715,41044,41404,41733,42096,42425,42774,43090,43429,43730,44055,44351,44672,44970,45296,45598,45933,46243,46585,46900,47245,47559,47899,48205,48536,48837,49165,49462,49789,50090,50420,50722,51055,51362,51696,52001,52341,52654,52997,53314,53665,53988,54343,54665,55019,55343,55697,56020,56377,56708,57067,57397,57759,58085,58438,58753,59094,59404,59737,60037,60370,60675,61008,61312,61645,61952,62285,62586,62919,63226,63558,63864,64198,64507,64845,65153,65493,274,617,933,1274,1588,1929,2237,2575,2883,3218,3526,3863,4174,4513,4827,5169,5489,5842,6166,6526,6860,7227,7559,7920,8252,8610,8932,9285,9607,9958,10275,10624,10940,11282,11590,11924,12228,12556,12855,13182,13482,13810,14110,14444,14752,15096,15414,15769,16102,16465,16796,17156,17482,17832,18147,18486,18793,19126,19423,19749,20046,20366,20659,20985,21289,21622,21932,22277,22598,22949,23270,23623,23945,24294,24607,24953,25267,25613,25931,26281,26605,26957,27277,27624,27939,28277,28579,28906,29207,29532,29828,30158,30465,30806,31122,31475,31803,32163,32490,32848,33175,33523,33836,34172,34476,34802,35095,35418,35715,36044,36348,36686,37002,37351,37669,38024,38350,38704,39025,39377,39698,40047,40364,
-		0xFFFF //for the valid flag
+	//6745,7063,7416,7741,8099,8416,8770,9094,9445,9759,10105,10419,10761,11064,11400,11707,12046,12347,12682,12991,13327,13630,13968,14277,14616,14918,15254,15559,15896,16196,16530,16834,17170,17473,17807,18115,18453,18757,19095,19406,19749,20058,20401,20716,21066,21379,21727,22045,22401,22718,23071,23394,23753,24072,24429,24752,25110,25427,25778,26095,26446,26756,27100,27412,27755,28062,28400,28709,29049,29353,29689,29997,30336,30639,30976,31287,31628,31936,32277,32591,32937,33248,33591,33907,34252,34561,34904,35218,35563,35872,36213,36526,36871,37181,37527,37844,38195,38511,38863,39185,39543,39863,40218,40542,40897,41217,41568,41889,42242,42556,42904,43223,43570,43880,44221,44533,44875,45178,45515,45822,46159,46462,46800,47108,47450,47757,48100,48415,48763,49075,49423,49738,50084,50394,50735,51045,51386,51687,52022,52326,52662,52965,53301,53608,53950,54255,54598,54912,55261,55572,55922,56239,56589,56904,57252,57569,57920,58232,58582,58898,59248,59560,59905,60217,60561,60867,61205,61513,61850,62152,62489,62797,63137,63443,63785,64100,64444,64755,65098,65412,221,527,866,1173,1509,1812,2145,2451,2787,3090,3428,3740,4083,4393,4738,5057,5406,5721,6074,6395,
+	0xFFFF //for the valid flag
 
 };
+static_assert (sizeof(nvm_t)<sizeof(NVM_flash), "nvm_t structure larger than allocated memory");
 
-//#if sizeof(nvm_t)>sizeof(NVM_flash)
-//#error "nvm_t structure larger than allocated memory"
-//#endif
+
 
 //FLASH_ALLOCATE(NVM_flash, sizeof(nvm_t));
 
@@ -71,19 +69,35 @@ bool nvmWrite_pPID(float Kp, float Ki, float Kd)
 	return true;
 }
 
-bool nvmWriteSystemParms(int32_t currentMa, int32_t currentHoldMa, int32_t errorLimit)
-
+bool nvmWriteSystemParms(SystemParams_t &systemParams)
 {
-	SystemParams_t params;
+	systemParams.parametersVaild=true;
 
-	params.currentMa=currentMa;
-	params.currentHoldMa=currentHoldMa;
-	params.errorLimit=errorLimit;
-
-	params.parametersVaild=true;
-
-	flashWrite((void *)&NVM->SystemParams,&params,sizeof(params));
+	flashWrite((void *)&NVM->SystemParams,&systemParams,sizeof(systemParams));
 	return true;
 }
 
+bool nvmWriteMotorParms(MotorParams_t &motorParams)
+{
+	motorParams.parametersVaild=true;
+
+	flashWrite((void *)&NVM->motorParams,&motorParams,sizeof(motorParams));
+	return true;
+}
+
+bool nvmErase(void)
+{
+	bool data=false;
+	uint16_t cs=0;
+
+	flashWrite((void *)&NVM->CalibrationTable.status,&data,sizeof(data));
+	flashWrite((void *)&NVM->sPID.parametersVaild ,&data,sizeof(data));
+	flashWrite((void *)&NVM->vPID.parametersVaild ,&data,sizeof(data));
+	flashWrite((void *)&NVM->pPID.parametersVaild ,&data,sizeof(data));
+	flashWrite((void *)&NVM->motorParams.parametersVaild ,&data,sizeof(data));
+	flashWrite((void *)&NVM->SystemParams.parametersVaild ,&data,sizeof(data));
+#ifdef NZS_FAST_CAL
+	flashWrite((void *)&NVM->FastCal.checkSum,&cs,sizeof(cs));
+#endif
+}
 

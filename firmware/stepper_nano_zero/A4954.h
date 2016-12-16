@@ -39,7 +39,7 @@ public:
 	uint32_t microsSinceStep(void) {return micros()-lastStepMicros;};
 	void setRotationDirection(bool forward) {forwardRotation=forward;};
 
-	void enable(bool enable);
+	void enable(bool enable) {enabled=enable;};
 	void limitCurrent(uint8_t percent); //higher more current
 };
 

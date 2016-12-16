@@ -14,7 +14,8 @@
 #define AS5047D_CMD_ANGLEUNC (0x3FFE)
 #define AS5047D_CMD_ANGLECOM (0x3FFF)
 
-
+#pragma GCC push_options
+#pragma GCC optimize ("-Ofast")
 
 static int getBit(int16_t data, int bit)
 {
@@ -90,8 +91,6 @@ boolean AS5047D::begin(int csPin)
 
 #ifdef NZS_AS5047_PIPELINE
 	//read encoder a few times to flush the pipeline
-	readEncoderAnglePipeLineRead();
-	readEncoderAnglePipeLineRead();
 	readEncoderAnglePipeLineRead();
 	readEncoderAnglePipeLineRead();
 #endif
@@ -234,5 +233,5 @@ void AS5047D::diagnostics(char *ptrStr)
 	}
 }
 
-
+#pragma GCC pop_options
 

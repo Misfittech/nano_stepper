@@ -14,43 +14,81 @@ CMD_STR(help,"Displays this message");
 CMD_STR(getcal,"Prints the calibration table");
 CMD_STR(calibrate,"Calbirates the encoder, should be done with motor disconnected from machine");
 CMD_STR(testcal,"tests the calibaration of the encoder");
-CMD_STR(microstep,"gets/sets the microstep size, example 'microstep 16'");
+//CMD_STR(microstep,"gets/sets the microstep size, example 'microstep 16'");
 CMD_STR(step, "Steps motor one step, optionally direction can be set is 'step 1' for reverse");
 CMD_STR(feedback, "enable or disable feedback controller, 'feedback 0' - disables, 'feedback 1' - enables");
 CMD_STR(readpos, "reads the current angle as 16bit number, applies calibration if valid");
 CMD_STR(encoderdiag, "Prints encoder diagnositc")
-CMD_STR(spid, "with no arguments prints simple PID parameters, with arguments sets PID 'sPID Kp Ki Kd' "
-		"Where Kp,Ki,Kd are floating point numbers")
-		CMD_STR(testringing ,"Steps motor at various currents and measures encoder")
-		//CMD_STR(microsteperror ,"test error on microstepping")
-		CMD_STR(params, "with no arguments read parameters, will set 'params currentMa holdCurrentMa errorLimit'")
-		CMD_STR(boot, "Enters the bootloader")
-		CMD_STR(move, "moves encoder to absolute angle in degrees 'move 400.1'")
-		CMD_STR(mode, "sets the feedback control mode, 0- simple, 1- PID")
-		CMD_STR(printdata, "prints last n error terms")
-		//List of supported commands
-		sCommand Cmds[] =
-		{
-				COMMAND(help),
-				COMMAND(calibrate),
-				COMMAND(getcal),
-				COMMAND(testcal),
-				COMMAND(microstep),
-				COMMAND(step),
-				COMMAND(feedback),
-				COMMAND(readpos),
-				COMMAND(encoderdiag),
-				COMMAND(spid),
-				COMMAND(testringing),
-				//COMMAND(microsteperror),
-				COMMAND(params),
-				COMMAND(boot),
-				COMMAND(move),
-				COMMAND(mode),
-				COMMAND(printdata),
+CMD_STR(spid, "with no arguments prints SIMPLE PID parameters, with arguments sets PID 'sPID Kp Ki Kd' "
+		"Where Kp,Ki,Kd are floating point numbers");
+CMD_STR(vpid, "with no arguments prints VELOCITY PID parameters, with arguments sets PID 'sPID Kp Ki Kd' "
+		"Where Kp,Ki,Kd are floating point numbers");
+CMD_STR(ppid, "with no arguments prints POSITIONAL PID parameters, with arguments sets PID 'sPID Kp Ki Kd' "
+		"Where Kp,Ki,Kd are floating point numbers");
+//CMD_STR(testringing ,"Steps motor at various currents and measures encoder");
+//CMD_STR(microsteperror ,"test error on microstepping")
+CMD_STR(sysparams, "with no arguments read parameters, will set with arguments");
+CMD_STR(motorparams, "with no arguments read parameters, will set with arguments");
+CMD_STR(boot, "Enters the bootloader");
+CMD_STR(move, "moves encoder to absolute angle in degrees 'move 400.1'");
+CMD_STR(printdata, "prints last n error terms");
+CMD_STR(velocity, "gets/set velocity in RPMs");
+CMD_STR(factoryreset, "resets board to factory defaults");
+//List of supported commands
+sCommand Cmds[] =
+{
+		COMMAND(help),
+		COMMAND(calibrate),
+		COMMAND(getcal),
+		COMMAND(testcal),
+		//COMMAND(microstep),
+		COMMAND(step),
+		COMMAND(feedback),
+		COMMAND(readpos),
+		COMMAND(encoderdiag),
+		COMMAND(spid),
+		COMMAND(vpid),
+		COMMAND(ppid),
+		//COMMAND(testringing),
+		//COMMAND(microsteperror),
+		COMMAND(sysparams),
+		COMMAND(motorparams),
+		COMMAND(boot),
+		COMMAND(move),
+		COMMAND(printdata),
+		COMMAND(velocity),
+		COMMAND(factoryreset),
 
-				{"",0,""}, //End of list signal
-		};
+		{"",0,""}, //End of list signal
+};
+
+
+static int factoryreset_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	nvmErase(); //erase all of the flash
+	NVIC_SystemReset();
+}
+static int velocity_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	int64_t x;
+
+	if (1 == argc)
+	{
+		float rpm;
+		rpm=atof(argv[0]);
+		x=(int64_t)(DIVIDE_WITH_ROUND(rpm*ANGLE_STEPS,60)); //divide with r
+
+
+		stepperCtrl.setVelocity(x);
+	}
+	int64_t y;
+	x=(stepperCtrl.getVelocity()*100 *60)/(ANGLE_STEPS);
+	y=abs(x-((x/100)*100));
+	CommandPrintf(ptrUart,"Velocity is %d.%02d - %d\n\r",(int32_t)(x/100),(int32_t)y,(int32_t)stepperCtrl.getVelocity());
+
+	return 0;
+}
+
 
 static int printdata_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
@@ -61,23 +99,6 @@ static int printdata_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	return 0;
 }
 
-static int mode_cmd(sCmdUart *ptrUart,int argc, char * argv[])
-{
-	int32_t x;
-
-	if (1 == argc)
-	{
-
-
-		x=atoi(argv[0]);
-		if (x<0) x=0;
-		if (x>2) x=2;
-		stepperCtrl.setControlMode((feedbackCtrl_t)x);
-	}
-	CommandPrintf(ptrUart,"mode is %d\n\r",stepperCtrl.getControlMode());
-
-	return 0;
-}
 
 static int move_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
@@ -139,32 +160,175 @@ static int microsteperror_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	stepperCtrl.feedback(feedback); //restore feedback
 	return 0;
 } */
+
+/*
 static int testringing_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	stepperCtrl.testRinging();
 	return 0;
 }
+ */
 
-static int params_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+static int sysparams_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	if (0 == argc)
 	{
-		CommandPrintf(ptrUart,"currentMa %d\n\r",NVM->SystemParams.currentMa);
-		CommandPrintf(ptrUart,"currentHoldMa %d\n\r",NVM->SystemParams.currentHoldMa);
+		CommandPrintf(ptrUart,"microsteps %d\n\r",NVM->SystemParams.microsteps);
+		CommandPrintf(ptrUart,"dirPinRotation %d\n\r",NVM->SystemParams.dirPinRotation);
 		CommandPrintf(ptrUart,"errorLimit %d\n\r",NVM->SystemParams.errorLimit);
+		CommandPrintf(ptrUart,"errorPinMode %d\n\r",NVM->SystemParams.errorPinMode);
+		CommandPrintf(ptrUart,"controllerMode %d\n\r",NVM->SystemParams.controllerMode);
 
+	} else	if (5 == argc)
+	{
+		int32_t x;
+		SystemParams_t systemParams;
+
+		systemParams.microsteps=atol(argv[0]);
+		x=atol(argv[1]);
+		systemParams.dirPinRotation=CCW_ROTATION;
+		if (x==0)
+		{
+			systemParams.dirPinRotation=CW_ROTATION;
+		}
+		systemParams.errorLimit=atol(argv[2]);
+		systemParams.errorPinMode=(ErrorPinMode_t)atol(argv[3]);
+		systemParams.controllerMode=(feedbackCtrl_t)atol(argv[4]);
+
+		nvmWriteSystemParms(systemParams);
+		stepperCtrl.updateParamsFromNVM();
+
+		CommandPrintf(ptrUart,"microsteps %d\n\r",NVM->SystemParams.microsteps);
+		CommandPrintf(ptrUart,"dirPinRotation %d\n\r",NVM->SystemParams.dirPinRotation);
+		CommandPrintf(ptrUart,"errorLimit %d\n\r",NVM->SystemParams.errorLimit);
+		CommandPrintf(ptrUart,"errorPinMode %d\n\r",NVM->SystemParams.errorPinMode);
+		CommandPrintf(ptrUart,"controllerMode %d\n\r",NVM->SystemParams.controllerMode);
+	} else
+	{
+		CommandPrintf(ptrUart, "try 'sysparams microsteps dirPinRotation errorLimit errorPinMode controllerMode'\n\r\tlike 'sysparams 16 0 327 0 2'\n\e");
+	}
+	return 0;
+}
+
+
+static int motorparams_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	if (0 == argc)
+	{
+		CommandPrintf(ptrUart,"currentMa %d\n\r",NVM->motorParams.currentMa);
+		CommandPrintf(ptrUart,"currentHoldMa %d\n\r",NVM->motorParams.currentHoldMa);
+		CommandPrintf(ptrUart,"motorWiring %d\n\r",NVM->motorParams.motorWiring);
+		CommandPrintf(ptrUart,"fullStepsPerRotation %d\n\r",NVM->motorParams.fullStepsPerRotation);
+
+	} else	if (5 == argc)
+	{
+		int32_t x;
+		MotorParams_t motorParams;
+
+		motorParams.currentMa=atol(argv[0]);
+		motorParams.currentHoldMa=atol(argv[1]);
+		motorParams.motorWiring=atol(argv[2]);
+		motorParams.fullStepsPerRotation=atol(argv[3]);
+
+		nvmWriteMotorParms(motorParams);
+		stepperCtrl.updateParamsFromNVM();
+
+		CommandPrintf(ptrUart,"currentMa %d\n\r",NVM->motorParams.currentMa);
+		CommandPrintf(ptrUart,"currentHoldMa %d\n\r",NVM->motorParams.currentHoldMa);
+		CommandPrintf(ptrUart,"motorWiring %d\n\r",NVM->motorParams.motorWiring);
+		CommandPrintf(ptrUart,"fullStepsPerRotation %d\n\r",NVM->motorParams.fullStepsPerRotation);
+	} else
+	{
+		CommandPrintf(ptrUart, "try 'motorparams currentMa currentHoldMa motorWiring fullStepsPerRotation'\n\r\tlike 'motroparams 2200 1500 0 200'\n\e");
+	}
+	return 0;
+}
+
+static int vpid_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	CommandPrintf(ptrUart, "args %d\n\r",argc);
+	if (0 == argc)
+	{
+		int32_t x,y;
+		x=(int32_t)NVM->vPID.Kp;
+		y=abs(1000*NVM->vPID.Kp-(x*1000));
+		CommandPrintf(ptrUart,"Kp %d.%03d\n\r",x,y);
+
+		x=(int32_t)NVM->vPID.Ki;
+		y=abs(1000*NVM->vPID.Ki-(x*1000));
+		CommandPrintf(ptrUart,"Ki %d.%03d\n\r",x,y);
+
+		x=(int32_t)NVM->vPID.Kd;
+		y=abs(1000*NVM->vPID.Kd-(x*1000));
+		CommandPrintf(ptrUart,"Kd %d.%03d\n\r",x,y);
 	}
 	if (3 == argc)
 	{
-		int32_t currentMa,currentHoldMa,errorLimit;
-		currentMa=atol(argv[0]);
-		currentHoldMa=atol(argv[1]);
-		errorLimit=atol(argv[2]);
-		nvmWriteSystemParms(currentMa,currentHoldMa,errorLimit);
-		CommandPrintf(ptrUart,"currentMa %d\n\r",NVM->SystemParams.currentMa);
-		CommandPrintf(ptrUart,"currentHoldMa %d\n\r",NVM->SystemParams.currentHoldMa);
-		CommandPrintf(ptrUart,"errorLimit %d\n\r",NVM->SystemParams.errorLimit);
+		float Kp,Ki,Kd;
+		int32_t x,y;
 
+		Kp=atof(argv[0]);
+		Ki=atof(argv[1]);
+		Kd=atof(argv[2]);
+
+		nvmWrite_vPID(Kp,Ki,Kd);
+		stepperCtrl.updateParamsFromNVM(); //force the controller to use the new parameters
+
+		x=(int32_t)NVM->vPID.Kp;
+		y=abs(1000*NVM->vPID.Kp-(x*1000));
+		CommandPrintf(ptrUart,"Kp %d.%03d\n\r",x,y);
+
+		x=(int32_t)NVM->vPID.Ki;
+		y=abs(1000*NVM->vPID.Ki-(x*1000));
+		CommandPrintf(ptrUart,"Ki %d.%03d\n\r",x,y);
+
+		x=(int32_t)NVM->vPID.Kd;
+		y=abs(1000*NVM->vPID.Kd-(x*1000));
+		CommandPrintf(ptrUart,"Kd %d.%03d\n\r",x,y);
+	}
+	return 0;
+}
+
+static int ppid_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	if (0 == argc)
+	{
+		int32_t x,y;
+		x=(int32_t)NVM->pPID.Kp;
+		y=abs(1000*NVM->pPID.Kp-(x*1000));
+		CommandPrintf(ptrUart,"Kp %d.%03d\n\r",x,y);
+
+		x=(int32_t)NVM->pPID.Ki;
+		y=abs(1000*NVM->pPID.Ki-(x*1000));
+		CommandPrintf(ptrUart,"Ki %d.%03d\n\r",x,y);
+
+		x=(int32_t)NVM->pPID.Kd;
+		y=abs(1000*NVM->pPID.Kd-(x*1000));
+		CommandPrintf(ptrUart,"Kd %d.%03d\n\r",x,y);
+	}
+	if (3 == argc)
+	{
+		float Kp,Ki,Kd;
+		int32_t x,y;
+
+		Kp=atof(argv[0]);
+		Ki=atof(argv[1]);
+		Kd=atof(argv[2]);
+
+		nvmWrite_pPID(Kp,Ki,Kd);
+		stepperCtrl.updateParamsFromNVM(); //force the controller to use the new parameters
+
+		x=(int32_t)NVM->pPID.Kp;
+		y=abs(1000*NVM->pPID.Kp-(x*1000));
+		CommandPrintf(ptrUart,"Kp %d.%03d\n\r",x,y);
+
+		x=(int32_t)NVM->pPID.Ki;
+		y=abs(1000*NVM->pPID.Ki-(x*1000));
+		CommandPrintf(ptrUart,"Ki %d.%03d\n\r",x,y);
+
+		x=(int32_t)NVM->pPID.Kd;
+		y=abs(1000*NVM->pPID.Kd-(x*1000));
+		CommandPrintf(ptrUart,"Kd %d.%03d\n\r",x,y);
 	}
 	return 0;
 }
@@ -176,7 +340,7 @@ static int spid_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 		int32_t x,y;
 		x=(int32_t)NVM->sPID.Kp;
 		y=abs(1000*NVM->sPID.Kp-(x*1000));
-		CommandPrintf(ptrUart,"Kp %d,%03d\n\r",x,y);
+		CommandPrintf(ptrUart,"Kp %d.%03d\n\r",x,y);
 
 		x=(int32_t)NVM->sPID.Ki;
 		y=abs(1000*NVM->sPID.Ki-(x*1000));
@@ -186,7 +350,7 @@ static int spid_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 		y=abs(1000*NVM->sPID.Kd-(x*1000));
 		CommandPrintf(ptrUart,"Kd %d.%03d\n\r",x,y);
 	}
-	if (4 == argc)
+	if (3 == argc)
 	{
 		float Kp,Ki,Kd;
 		int32_t x,y;
@@ -196,11 +360,11 @@ static int spid_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 		Kd=atof(argv[2]);
 
 		nvmWrite_sPID(Kp,Ki,Kd);
-		stepperCtrl.updatePIDs(); //force the controller to use the new parameters
+		stepperCtrl.updateParamsFromNVM(); //force the controller to use the new parameters
 
 		x=(int32_t)NVM->sPID.Kp;
 		y=abs(1000*NVM->sPID.Kp-(x*1000));
-		CommandPrintf(ptrUart,"Kp %d,%03d\n\r",x,y);
+		CommandPrintf(ptrUart,"Kp %d.%03d\n\r",x,y);
 
 		x=(int32_t)NVM->sPID.Ki;
 		y=abs(1000*NVM->sPID.Ki-(x*1000));
@@ -267,6 +431,7 @@ static int step_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	return 0;
 }
 
+/*
 static int microstep_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	bool ret;
@@ -283,7 +448,7 @@ static int microstep_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	}
 	return 0;
 }
-
+ */
 
 // print out the help strings for the commands
 static int help_cmd(sCmdUart *ptrUart,int argc, char * argv[])
@@ -330,7 +495,7 @@ static int testcal_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	a=stepperCtrl.maxCalibrationError();
 	x=(uint16_t)a*(int32_t)360000L/(int32_t)ANGLE_MAX;
 
-	CommandPrintf(ptrUart,"Max error is %d.%03d degrees\n\r", x/1000,x%1000);
+	CommandPrintf(ptrUart,"Max error is %d.%03d degrees\n\r", x/1000,abs(x)%1000);
 	return 0;
 }
 

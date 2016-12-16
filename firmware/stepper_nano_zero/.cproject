@@ -89,8 +89,6 @@
 					</folderInfo>
 					<sourceEntries>
 						<entry excluding="Adafruit-GFX-Library-master|Adafruit_SSD1306-master" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Adafruit-GFX-Library-master"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Adafruit_SSD1306-master"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -111,4 +109,5 @@
 		</scannerConfigBuildInfo>
 	</storageModule>
 	<storageModule moduleId="refreshScope"/>
+	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
 </cproject>

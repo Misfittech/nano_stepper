@@ -6,6 +6,9 @@
 
 static uint8_t pinState=0;
 
+#pragma GCC push_options
+#pragma GCC optimize ("-Ofast")
+
 #define SINE_STEPS (1024L)
 #define SINE_MAX (65535L)
 
@@ -315,7 +318,7 @@ void A4954::begin()
 	pinMode(PIN_A4954_VREF34, OUTPUT);
 	pinMode(PIN_A4954_VREF12, OUTPUT);
 
-
+	enabled=true;
 	lastStepMicros=0;
 	forwardRotation=true;
 
@@ -437,6 +440,7 @@ int32_t A4954::move(int32_t stepAngle, uint32_t mA)
 
 	if (enabled == false)
 	{
+		WARNING("A4954 disabled");
 		setDAC(0,0); //turn current off
 		bridge1(3); //tri state bridge outputs
 		bridge2(3); //tri state bridge outputs
@@ -503,5 +507,5 @@ int32_t A4954::move(int32_t stepAngle, uint32_t mA)
 	lastStepMicros=micros();
 	return stepAngle;
 }
-
+#pragma GCC pop_options
 
