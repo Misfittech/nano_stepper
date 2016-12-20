@@ -34,8 +34,11 @@ int menuTestCal(int argc, char *argv[])
 	x=x-(y*100);
 	x=abs(x);
 	sprintf(str, "%d.%02d deg",y,x);
+#ifndef DISABLE_LCD
 	Lcd.lcdShow("Cal Error", str,"");
-	LOG("Calibration error %s",str);
+#endif
+  LOG("Calibration error %s",str);
+#ifndef MECHADUINO_HARDWARE
 	while(digitalRead(PIN_SW3)==1)
 	{
 		//wait for button press
@@ -44,6 +47,7 @@ int menuTestCal(int argc, char *argv[])
 	{
 		//wait for button release
 	}
+#endif
 }
 
 static  options_t stepOptions[] {
