@@ -11,7 +11,7 @@
 #include <Wire.h>
 
 
-
+#ifndef DISABLE_LCD
 void NZS_LCD::begin(StepperCtrl *ptrsCtrl)
 {
 	pinMode(PIN_SW1, INPUT_PULLUP);
@@ -244,7 +244,7 @@ void __attribute__((optimize("Ofast")))NZS_LCD::process(void)
 		buttonState &= ~0x04;
 	}
 }
-
+#endif
 /*
 //does the LCD menu system
 void StepperCtrl::menu(void)
