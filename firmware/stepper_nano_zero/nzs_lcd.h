@@ -2,8 +2,17 @@
  * nzs_lcd.h
  *
  *  Created on: Dec 8, 2016
- *      Author: tramp_000
- */
+ *      Author: trampas
+ *
+ *
+ *	Misfit Tech invests time and resources providing this open source code,
+ *	please support Misfit Tech and open-source hardware by purchasing
+ *	products from Misfit Tech, www.misifittech.net!
+ *
+ *	Written by Trampas Stern  for Misfit Tech.
+ *	BSD license, check license.txt for more information
+ *	All text above, must be included in any redistribution
+ *********************************************************************/
 
 #ifndef NZS_LCD_H_
 #define NZS_LCD_H_

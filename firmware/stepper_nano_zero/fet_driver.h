@@ -1,5 +1,10 @@
-/**********************************************************************
+/*
+ * fet_driver.h
+ *
+ *  Created on: Dec 24, 2016
  *      Author: tstern
+ *
+ *  This file supports using discrete FETs as drivers for stepper motor
  *
  *	Misfit Tech invests time and resources providing this open source code,
  *	please support Misfit Tech and open-source hardware by purchasing
@@ -9,22 +14,21 @@
  *	BSD license, check license.txt for more information
  *	All text above, must be included in any redistribution
  *********************************************************************/
-#ifndef __A4954__H__
-#define __A4954__H__
+
+#ifndef FET_DRIVER_H_
+#define FET_DRIVER_H_
+
 #include <Arduino.h>
 #include "board.h"
 #include "angle.h"
 #include "sine.h"
 
-#define A4954_NUM_MICROSTEPS (256)
-#define A4954_MIN_TIME_BETWEEN_STEPS_MICROS  (1000)
+#define FET_DRIVER_NUM_MICROSTEPS (SINE_STEPS/4) //number of steps to use for microstepping, default is 256
 
 //prvent someone for making a mistake with the code
-#if ((A4954_NUM_MICROSTEPS*4) != SINE_STEPS)
+#if ((FET_DRIVER_NUM_MICROSTEPS*4) != SINE_STEPS)
 #error "SINE_STEPS must be 4x of Micro steps for the move function"
 #endif
-
-
 
 /*
  *  When it comes to the stepper driver if we use angles
@@ -39,7 +43,7 @@
  *
  */
 
-class A4954
+class FetDriver
 {
 private:
 	uint32_t lastStepMicros; // time in microseconds that last step happened
@@ -56,9 +60,8 @@ public:
 	void setRotationDirection(bool forward) {forwardRotation=forward;};
 
 	void enable(bool enable) {enabled=enable;};
-	void limitCurrent(uint8_t percent); //higher more current
 };
 
 
 
-#endif //__A4954__H__
+#endif /* FET_DRIVER_H_ */

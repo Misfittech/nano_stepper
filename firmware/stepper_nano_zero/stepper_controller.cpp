@@ -1,3 +1,14 @@
+/**********************************************************************
+ *      Author: tstern
+ *
+ *	Misfit Tech invests time and resources providing this open source code,
+ *	please support Misfit Tech and open-source hardware by purchasing
+ *	products from Misfit Tech, www.misifittech.net!
+ *
+ *	Written by Trampas Stern  for Misfit Tech.
+ *	BSD license, check license.txt for more information
+ *	All text above, must be included in any redistribution
+ *********************************************************************/
 #include "stepper_controller.h"
 
 #include "nonvolatile.h" //for programmable parameters
@@ -457,7 +468,7 @@ stepCtrlError_t StepperCtrl::begin(void)
 
 
 	enableFeedback=false;
-
+	velocity=0;
 	currentLocation=0;
 	numSteps=0;
 
@@ -986,6 +997,7 @@ bool StepperCtrl::simpleFeedback(void)
 	static int32_t iTerm=0;
 	static int64_t lastY=getCurrentLocation();
 
+
 	int32_t fullStep=ANGLE_STEPS/motorParams.fullStepsPerRotation;
 
 
@@ -996,8 +1008,19 @@ bool StepperCtrl::simpleFeedback(void)
 	y=getCurrentLocation();
 	dy=y-lastY;
 	lastY=y;
-	y=y+dy;
+	//y=y+dy;
 
+	//we can limit the velocity by controlling the amount we move per call to this function
+	// this only works for velocity greater than 100rpm
+/*	if (velocity!=0)
+	{
+		fullStep=velocity/NZS_CONTROL_LOOP_HZ;
+	}
+	if (fullStep==0)
+	{
+		fullStep=1; //this RPM of (1*NZS_CONTROL_LOOP_HZ)/60 ie at 6Khz it is 100RPM
+	}
+*/
 	if (enableFeedback)
 	{
 		int64_t error;

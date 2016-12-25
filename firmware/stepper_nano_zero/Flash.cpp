@@ -1,3 +1,14 @@
+/**********************************************************************
+ *      Author: tstern
+ *
+ *	Misfit Tech invests time and resources providing this open source code,
+ *	please support Misfit Tech and open-source hardware by purchasing
+ *	products from Misfit Tech, www.misifittech.net!
+ *
+ *	Written by Trampas Stern  for Misfit Tech.
+ *	BSD license, check license.txt for more information
+ *	All text above, must be included in any redistribution
+ *********************************************************************/
 #include "Flash.h"
 #include "syslog.h"
 

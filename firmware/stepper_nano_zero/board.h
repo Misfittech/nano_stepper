@@ -1,3 +1,14 @@
+/**********************************************************************
+ *      Author: tstern
+ *
+ *	Misfit Tech invests time and resources providing this open source code,
+ *	please support Misfit Tech and open-source hardware by purchasing
+ *	products from Misfit Tech, www.misifittech.net!
+ *
+ *	Written by Trampas Stern  for Misfit Tech.
+ *	BSD license, check license.txt for more information
+ *	All text above, must be included in any redistribution
+ *********************************************************************/
 #ifndef __BOARD_H__
 #define __BOARD_H__
 
@@ -5,6 +16,9 @@
 
 //define this if you are using the Mechaduino
 //#define MECHADUINO_HARDWARE
+
+//define this if using the NEMA 23 10A hardware
+#define NEMA_23_10A_HW
 
 #define NZS_FAST_CAL // define this to use 32k of flash for fast calibration table
 #define NZS_FAST_SINE //uses 2048 extra bytes to implement faster sine tables
@@ -76,8 +90,6 @@ typedef enum {
 
 
 
-
-
 //mechaduio and Arduino Zero has defined serial ports differently than NZS
 #ifdef MECHADUINO_HARDWARE
 #warning "Compiling source for Mechaduino NOT NZS"
@@ -88,6 +100,10 @@ typedef enum {
 
 #define PIN_STEP_INPUT  (0)
 #define PIN_DIR_INPUT   (1)
+
+#define PIN_MOSI        (23)
+#define PIN_SCK         (24)
+#define PIN_MISO        (22)
 
 #ifdef MECHADUINO_HARDWARE
 #define PIN_ERROR 		(19)  //analogInputToDigitalPin(PIN_A5))
@@ -102,6 +118,31 @@ typedef enum {
 
 //these pins use the TIMER in the A4954 driver
 // changing the pin definitions here may require changes in the A4954.cpp file
+
+#define PIN_FET_IN1		(5)
+#define PIN_FET_IN2		(6)
+#define PIN_FET_IN3		(7)
+#define PIN_FET_IN4		(2)
+#define PIN_FET_VREF1	(4)
+#define PIN_FET_VREF2	(3)
+#define PIN_FET_ENABLE		(12)
+//current sense pin from each H-bridge
+#define ISENSE_FET_A	 (17) //analogInputToDigitalPin(PIN_A3)
+#define ISENSE_FET_B	 (8)
+//Comparators analog inputs
+#define COMP_FET_A		 (18)//analogInputToDigitalPin(PIN_A4))
+#define COMP_FET_B		 (9)
+
+#ifdef NEMA_23_10A_HW
+#define PIN_RED_LED     	(13)
+#define PIN_YELLOW_LED  	(26) //TXLED (PA27)
+
+#define PIN_SW1		(15)//analogInputToDigitalPin(PIN_A1))
+#define PIN_SW3		(14)//analogInputToDigitalPin(PIN_A0))
+#define PIN_SW4		(19)//analogInputToDigitalPin(PIN_A5))
+
+
+
 #define PIN_A4954_IN3		(5)
 #define PIN_A4954_IN4		(6)
 #define PIN_A4954_IN2		(7)
@@ -113,20 +154,20 @@ typedef enum {
 #define PIN_A4954_VREF34	(4)
 #define PIN_A4954_VREF12	(9)
 
+#else
 #ifndef MECHADUINO_HARDWARE
 #define PIN_SW1		(19)//analogInputToDigitalPin(PIN_A5))
 #define PIN_SW3		(14)//analogInputToDigitalPin(PIN_A0))
 #define PIN_SW4		(15)//analogInputToDigitalPin(PIN_A1))
 #endif
 
-#define PIN_MOSI        (23)
-#define PIN_SCK         (24)
-#define PIN_MISO        (22)
+
 
 #define PIN_RED_LED     (13)
 #ifndef MECHADUINO_HARDWARE
 #define PIN_YELLOW_LED  (8)
 #endif
+#endif //NEMA_23_10A_HW
 
 //Here are some useful macros
 #define DIVIDE_WITH_ROUND(x,y)  ((x+y/2)/y)

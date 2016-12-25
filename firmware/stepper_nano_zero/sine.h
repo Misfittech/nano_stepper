@@ -1,4 +1,7 @@
 /**********************************************************************
+ * sine.h
+ *
+ *  Created on: Dec 24, 2016
  *      Author: tstern
  *
  *	Misfit Tech invests time and resources providing this open source code,
@@ -9,23 +12,19 @@
  *	BSD license, check license.txt for more information
  *	All text above, must be included in any redistribution
  *********************************************************************/
-#ifndef __AS5047D_H__
-#define __AS5047D_H__
 
-#include <Arduino.h>
-#define AS5047D_DEGREES_PER_BIT  (360.0/(float)(0x3FFF))
 
-class AS5047D {
-  private:
-    int chipSelectPin;
-    int16_t readAddress(uint16_t addr);
-    bool error=false;
-  public:
-    boolean begin(int csPin);
-    int16_t readEncoderAngle(void);
-    void diagnostics(char *ptrStr);
-    int16_t readEncoderAnglePipeLineRead(void);
-    bool getError(void) {return error;};
-};
+#ifndef SINE_H_
+#define SINE_H_
 
-#endif //__AS5047D_H__
+#include "board.h"
+
+#define SINE_STEPS (1024L)
+#define SINE_MAX (65535L)
+
+
+int16_t sine(uint16_t angle);
+int16_t cosine(uint16_t angle);
+
+
+#endif /* SINE_H_ */
