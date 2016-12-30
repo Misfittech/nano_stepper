@@ -18,7 +18,7 @@ CMD_STR(testcal,"tests the calibaration of the encoder");
 CMD_STR(step, "Steps motor one step, optionally direction can be set is 'step 1' for reverse");
 CMD_STR(feedback, "enable or disable feedback controller, 'feedback 0' - disables, 'feedback 1' - enables");
 CMD_STR(readpos, "reads the current angle as 16bit number, applies calibration if valid");
-CMD_STR(encoderdiag, "Prints encoder diagnositc")
+CMD_STR(encoderdiag, "Prints encoder diagnostic")
 CMD_STR(spid, "with no arguments prints SIMPLE PID parameters, with arguments sets PID 'sPID Kp Ki Kd' "
 		"Where Kp,Ki,Kd are floating point numbers");
 CMD_STR(vpid, "with no arguments prints VELOCITY PID parameters, with arguments sets PID 'sPID Kp Ki Kd' "

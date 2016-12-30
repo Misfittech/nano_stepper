@@ -21,6 +21,9 @@
 #pragma GCC push_options
 #pragma GCC optimize ("-Ofast")
 
+
+volatile bool enableState=true;
+
 StepperCtrl stepperCtrl;
 NZS_LCD Lcd;
 
@@ -254,6 +257,7 @@ int controlLoop(int argc, char *argv[])
 
 static  options_t errorPinOptions[] {
 		{"Enable"},
+		{"!Enable"}, //error pin works like enable on step sticks
 		{"Error"},
 		//	{"BiDir"}, //12/12/2016 not implemented yet
 		{""}
@@ -341,7 +345,7 @@ static void stepInput(void)
 }
 
 
-//this function is called when error pin chagnes as enable signal
+//this function is called when error pin changes as enable signal
 static void enableInput(void)
 {
 	if (NVM->SystemParams.errorPinMode == ERROR_PIN_MODE_ENABLE)
@@ -349,7 +353,16 @@ static void enableInput(void)
 		static int enable;
 		//read our enable pin
 		enable = digitalRead(PIN_ERROR);
-		stepperCtrl.enable(enable);
+		enableState=enable;
+		//stepperCtrl.enable(enable);
+	}
+	if (NVM->SystemParams.errorPinMode == ERROR_PIN_MODE_ACTIVE_LOW_ENABLE)
+	{
+		static int enable;
+		//read our enable pin
+		enable = !digitalRead(PIN_ERROR);
+		enableState=enable;
+		//stepperCtrl.enable(enable);
 	}
 }
 
@@ -367,6 +380,7 @@ void TC5_Handler()
 		YELLOW_LED(error);
 		if (NVM->SystemParams.errorPinMode == ERROR_PIN_MODE_ERROR)
 		{
+			GPIO_OUTPUT(PIN_ERROR);
 			if (error)
 			{	//assume high is inactive and low is active on error pin
 				digitalWrite(PIN_ERROR,LOW);
@@ -523,17 +537,23 @@ void NZS::begin(void)
 	Lcd.setMenu(MenuMain);
 #endif
 
+
+
+
 	attachInterrupt(digitalPinToInterrupt(PIN_STEP_INPUT), stepInput, RISING);
 
 	attachInterrupt(digitalPinToInterrupt(PIN_ERROR), enableInput, CHANGE);
-#
+
 
 	LOG("SETUP DONE!");
 }
 
 void NZS::loop(void)
 {
-
+	if (enableState != stepperCtrl.getEnable())
+	{
+		stepperCtrl.enable(enableState);
+	}
 
 	commandsProcess(); //handle commands
 #ifndef DISABLE_LCD

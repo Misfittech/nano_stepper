@@ -18,7 +18,8 @@
 //#define MECHADUINO_HARDWARE
 
 //define this if using the NEMA 23 10A hardware
-#define NEMA_23_10A_HW
+//#define NEMA_23_10A_HW
+
 
 #define NZS_FAST_CAL // define this to use 32k of flash for fast calibration table
 #define NZS_FAST_SINE //uses 2048 extra bytes to implement faster sine tables
@@ -32,13 +33,16 @@
 #define NZS_LCD_ABSOULTE_ANGLE  //define this to show angle from zero in positive and negative direction
 								// for example 2 rotations from start will be angle of 720 degrees
 
-#define VERSION "FW: 0.07" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.08" //this is what prints on LCD during splash screen
 
 #define SERIAL_BAUD (115200) //baud rate for the serial ports
 
 #ifdef MECHADUINO_HARDWARE
 #define DISABLE_LCD //define this to disable the LCD calls
 #endif
+
+
+#define F_CPU (48000000UL)
 
 /* change log
  *   0.02 added fixes for 0.9 degree motor
@@ -70,8 +74,10 @@ typedef enum {
 
 typedef enum {
 	ERROR_PIN_MODE_ENABLE=0, //error pin works like enable on step sticks
-	ERROR_PIN_MODE_ERROR=1,  //error pin is low when there is angle error
-	ERROR_PIN_MODE_BIDIR=2,   //error pin is bidirection open collector
+	ERROR_PIN_MODE_ACTIVE_LOW_ENABLE=1, //error pin works like enable on step sticks
+	ERROR_PIN_MODE_ERROR=2,  //error pin is low when there is angle error
+	ERROR_PIN_MODE_BIDIR=3,   //error pin is bidirection open collector
+
 } ErrorPinMode_t;
 
 typedef enum {
@@ -83,10 +89,16 @@ typedef enum {
 } feedbackCtrl_t;
 
 
-// ******** TIMER USAGE ************
+// ******** TIMER USAGE A4954 versions ************
 //TCC0 is used for DAC PWM to the A4954
 //TCC1 can be used as PWM for the input pins on the A4954
 //TC5 is use for timing the control loop
+
+// ******** TIMER USAGE NEMA23 10A versions ************
+//TCC0 is used for DAC PWM to the comparators
+//TCC1 maybe used for the step input pin or as PWM for the FET IN pins
+//TC5 is use for timing the control loop
+//TC3 & TC4 is used for the FET driver to
 
 
 
@@ -133,15 +145,16 @@ typedef enum {
 #define COMP_FET_A		 (18)//analogInputToDigitalPin(PIN_A4))
 #define COMP_FET_B		 (9)
 
-#ifdef NEMA_23_10A_HW
-#define PIN_RED_LED     	(13)
-#define PIN_YELLOW_LED  	(26) //TXLED (PA27)
+#ifndef NEMA_23_10A_HW
+
+#define PIN_RED_LED     (13)
+#ifndef MECHADUINO_HARDWARE
+#define PIN_YELLOW_LED  (8)
+#endif
 
 #define PIN_SW1		(15)//analogInputToDigitalPin(PIN_A1))
 #define PIN_SW3		(14)//analogInputToDigitalPin(PIN_A0))
 #define PIN_SW4		(19)//analogInputToDigitalPin(PIN_A5))
-
-
 
 #define PIN_A4954_IN3		(5)
 #define PIN_A4954_IN4		(6)
@@ -154,19 +167,16 @@ typedef enum {
 #define PIN_A4954_VREF34	(4)
 #define PIN_A4954_VREF12	(9)
 
-#else
-#ifndef MECHADUINO_HARDWARE
+#else //NEMA 23 10A hardware
+
 #define PIN_SW1		(19)//analogInputToDigitalPin(PIN_A5))
 #define PIN_SW3		(14)//analogInputToDigitalPin(PIN_A0))
 #define PIN_SW4		(15)//analogInputToDigitalPin(PIN_A1))
-#endif
+
+#define PIN_RED_LED     	(13)
+#define PIN_YELLOW_LED  	(26) //TXLED (PA27)
 
 
-
-#define PIN_RED_LED     (13)
-#ifndef MECHADUINO_HARDWARE
-#define PIN_YELLOW_LED  (8)
-#endif
 #endif //NEMA_23_10A_HW
 
 //Here are some useful macros
@@ -177,6 +187,8 @@ typedef enum {
 #define GPIO_HIGH(pin) {PORT->Group[g_APinDescription[(pin)].ulPort].OUTSET.reg = (1ul << g_APinDescription[(pin)].ulPin);}
 
 #define GPIO_OUTPUT(pin) {PORT->Group[g_APinDescription[(pin)].ulPort].PINCFG[g_APinDescription[(pin)].ulPin].reg&=~(uint8_t)(PORT_PINCFG_INEN) ;  PORT->Group[g_APinDescription[(pin)].ulPort].DIRSET.reg = (uint32_t)(1<<g_APinDescription[(pin)].ulPin) ;}
+
+
 //sets up the pins for the board
 static void boardSetupPins(void)
 {
@@ -189,11 +201,8 @@ static void boardSetupPins(void)
 
 	pinMode(PIN_STEP_INPUT, INPUT_PULLDOWN);
 	pinMode(PIN_DIR_INPUT, INPUT_PULLDOWN);
-#ifdef USE_ENABLE_PIN
-	pinMode(PIN_ERROR, INPUT_PULLDOWN);
-#else
-	pinMode(PIN_ERROR, OUTPUT);
-#endif
+
+	pinMode(PIN_ERROR, INPUT_PULLUP); //default error pin as enable pin with pull up
 
 	pinMode(PIN_AS5047D_CS,OUTPUT);
 	digitalWrite(PIN_AS5047D_CS,LOW); //pull CS LOW by default (chip powered off)

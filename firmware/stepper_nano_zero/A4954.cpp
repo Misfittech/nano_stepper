@@ -264,7 +264,17 @@ void A4954::limitCurrent(uint8_t percent)
 }
 
 
-
+void A4954::enable(bool enable)
+{
+	enabled=enable;
+	if (enabled == false)
+	{
+		WARNING("A4954 disabled");
+		setDAC(0,0); //turn current off
+		bridge1(3); //tri state bridge outputs
+		bridge2(3); //tri state bridge outputs
+	}
+}
 
 
 

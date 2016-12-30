@@ -128,6 +128,7 @@ class StepperCtrl
 
 		void move(int dir, uint16_t steps); //forces motor to move even if feedback controller is turned off.
 		void enable(bool enable);
+		bool getEnable(void) {return enabled;}
 
 		int32_t getLoopTime(void) { return loopTimeus;}
 

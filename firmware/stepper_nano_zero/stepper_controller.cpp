@@ -42,7 +42,7 @@ void setupTCInterrupts() {
 	WAIT_TC16_REGS_SYNC(TC5)
 
 
-	TC5->COUNT16.CC[0].reg = 48000000UL/NZS_CONTROL_LOOP_HZ;
+	TC5->COUNT16.CC[0].reg = F_CPU/NZS_CONTROL_LOOP_HZ;
 	WAIT_TC16_REGS_SYNC(TC5)
 
 
@@ -124,6 +124,13 @@ void StepperCtrl::updateParamsFromNVM(void)
 		systemParams.errorLimit=(int32_t)ANGLE_FROM_DEGREES(1.8);
 		systemParams.errorPinMode=ERROR_PIN_MODE_ENABLE;  //default to enable pin
 	}
+
+	//default the error pin to input, if it is an error pin the
+	// handler for this will change the pin to be an output.
+	// for bidirection error it has to handle input/output it's self as well.
+	// This is not the cleanest way to handle this...
+	// TODO implement this cleaner?
+	pinMode(PIN_ERROR, INPUT_PULLUP); //we have input pin
 
 	if (NVM->motorParams.parametersVaild)
 	{
@@ -1101,22 +1108,16 @@ void StepperCtrl::enable(bool enable)
 {
 	bool state=TC5_ISR_Enabled;
 	disableTCInterrupts();
-	uint16_t microSteps=systemParams.microsteps;
-	bool feedback=enableFeedback;
 
-	enabled=enable;
-	stepperDriver.enable(enabled); //enable or disable the stepper driver as needed
+	stepperDriver.enable(enable); //enable or disable the stepper driver as needed
 
 	if (enabled==false && enable==true) //if we are enabling previous disabled motor
 	{
-		enableFeedback=false;
-		systemParams.microsteps=1;
-		LOG("reset motor");
-		motorReset();
+		setLocationFromEncoder();
 	}
 
-	systemParams.microsteps=microSteps;
-	enableFeedback=feedback;
+	enabled=enable;
+
 	if (state) enableTCInterrupts();
 }
 
