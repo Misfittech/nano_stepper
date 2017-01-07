@@ -1,7 +1,7 @@
 # Smart Stepper (also known as the nano zero stepper)
 Firmware to turn a stepper motor into servo motor: see http://misfittech.net for hardware! 
 
-This firmware also runs on the Mechaduino and has many improvements over stock Mechaduino firmware. 
+
 
 If you want to support the work on the firmware and hardware consider buying hardware from www.misfittech.net or buying me a beer using the donation button. 
 
@@ -111,4 +111,9 @@ This command will take the current motor position and set it to absolute angle o
 All nano stepper related materials are released under the Creative Commons Attribution Share-Alike 4.0 License
 Much of the work is based on Mechaduino project:
 https://github.com/jcchurch13/Mechaduino-Firmware
+
+This firmware also runs on the Mechaduino hardware and has many improvements over stock Mechaduino firmware. 
+Note the Mechaduino does have a few hardware bugs that the firmware can not fix:
+1. AS4954 driver is not thermally soldered to PCB on Mechaduino 0.1 
+2. A5047D has been known to lock up with reboots on Mechaduino 0.1 
 
