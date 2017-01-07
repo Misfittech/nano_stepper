@@ -64,7 +64,7 @@ void setupTCInterrupts() {
 
 }
 
-void enableTCInterrupts() {
+static void enableTCInterrupts() {
 
 	TC5_ISR_Enabled=true;
 	NVIC_EnableIRQ(TC5_IRQn);
@@ -73,21 +73,21 @@ void enableTCInterrupts() {
 	//  WAIT_TC16_REGS_SYNC(TC5)                      //wait for sync
 }
 
-void disableTCInterrupts() {
+static void disableTCInterrupts() {
 
 	TC5_ISR_Enabled=false;
 	//NVIC_DisableIRQ(TC5_IRQn);
 	TC5->COUNT16.INTENCLR.bit.OVF = 1;
 }
 
-bool enterCriticalSection()
+static bool enterCriticalSection()
 {
 	bool state=TC5_ISR_Enabled;
 	disableTCInterrupts();
 	return state;
 }
 
-void exitCriticalSection(bool prevState)
+static void exitCriticalSection(bool prevState)
 {
 	if (prevState)
 	{
@@ -179,6 +179,7 @@ void StepperCtrl::setLocationFromEncoder(void)
 {
 	numSteps=0;
 	currentLocation=0;
+
 	if (calTable.calValid())
 	{
 		int32_t n,x;
@@ -214,6 +215,18 @@ void StepperCtrl::setLocationFromEncoder(void)
 		numSteps=DIVIDE_WITH_ROUND( ((int32_t)a *motorParams.fullStepsPerRotation*systemParams.microsteps),ANGLE_STEPS);
 		currentLocation=(uint16_t)a;
 	}
+	zeroAngleOffset=getCurrentLocation();
+}
+
+
+void StepperCtrl::setZero(void)
+{
+	//we want to set the starting angle to zero.
+	bool state=enterCriticalSection();
+
+	zeroAngleOffset=getCurrentLocation();
+
+	exitCriticalSection(state);
 }
 
 void StepperCtrl::encoderDiagnostics(char *ptrStr)
@@ -683,7 +696,7 @@ int64_t StepperCtrl::getDesiredLocation(void)
 	bool state=TC5_ISR_Enabled;
 	disableTCInterrupts();
 	n=motorParams.fullStepsPerRotation * systemParams.microsteps;
-	ret=((int64_t)numSteps * (int64_t)ANGLE_STEPS+(n/2))/n;
+	ret=((int64_t)numSteps * (int64_t)ANGLE_STEPS+(n/2))/n ;
 	if (state) enableTCInterrupts();
 	return ret;
 }
@@ -768,7 +781,7 @@ void StepperCtrl::moveToAbsAngle(int32_t a)
 
 	n=motorParams.fullStepsPerRotation * systemParams.microsteps;
 
-	ret=((int64_t)a*n)/(int32_t)ANGLE_STEPS;
+	ret=(((int64_t)a+zeroAngleOffset)*n)/(int32_t)ANGLE_STEPS;
 	numSteps=ret;
 }
 
@@ -793,7 +806,7 @@ int64_t StepperCtrl::getCurrentLocation(void)
 	bool state=TC5_ISR_Enabled;
 	disableTCInterrupts();
 	a=calTable.fastReverseLookup(sampleAngle());
-	x=(int32_t)a - (int32_t)(currentLocation & ANGLE_MAX);
+	x=(int32_t)a - (int32_t)((currentLocation) & ANGLE_MAX);
 
 	if (x>((int32_t)ANGLE_STEPS/2))
 	{
@@ -809,13 +822,19 @@ int64_t StepperCtrl::getCurrentLocation(void)
 
 }
 
-float StepperCtrl::getCurrentAngle(void)
+int64_t StepperCtrl::getCurrentAngle(void)
 {
 	int64_t x;
-	float f;
-	x=getCurrentLocation();
-	f=(x*360.0)/(float)ANGLE_STEPS;
-	return f;
+	x=getCurrentLocation()-zeroAngleOffset;
+	return x;
+}
+
+
+int64_t StepperCtrl::getDesiredAngle(void)
+{
+	int64_t x;
+	x=getDesiredLocation()-zeroAngleOffset;
+	return x;
 }
 
 void StepperCtrl::setVelocity(int64_t vel)
@@ -1003,7 +1022,7 @@ bool StepperCtrl::simpleFeedback(void)
 	static int32_t i=0;
 	static int32_t iTerm=0;
 	static int64_t lastY=getCurrentLocation();
-
+	static int32_t velocity=0;
 
 	int32_t fullStep=ANGLE_STEPS/motorParams.fullStepsPerRotation;
 
@@ -1015,11 +1034,15 @@ bool StepperCtrl::simpleFeedback(void)
 	y=getCurrentLocation();
 	dy=y-lastY;
 	lastY=y;
+
+
+
 	//y=y+dy;
+
 
 	//we can limit the velocity by controlling the amount we move per call to this function
 	// this only works for velocity greater than 100rpm
-/*	if (velocity!=0)
+	/*	if (velocity!=0)
 	{
 		fullStep=velocity/NZS_CONTROL_LOOP_HZ;
 	}
@@ -1027,7 +1050,7 @@ bool StepperCtrl::simpleFeedback(void)
 	{
 		fullStep=1; //this RPM of (1*NZS_CONTROL_LOOP_HZ)/60 ie at 6Khz it is 100RPM
 	}
-*/
+	 */
 	if (enableFeedback)
 	{
 		int64_t error;
@@ -1038,6 +1061,7 @@ bool StepperCtrl::simpleFeedback(void)
 
 		//error is in units of degrees when 360 degrees == 65536
 		error=(getDesiredLocation()-y);//measureError(); //error is currentPos-desiredPos
+
 
 		data[i]=(int16_t)error;
 		i++;
@@ -1067,6 +1091,7 @@ bool StepperCtrl::simpleFeedback(void)
 
 		u=(sPID.Kp * error)/CTRL_PID_SCALING+x+(sPID.Kd *(error-lastError))/CTRL_PID_SCALING;
 
+
 		//limit error to full step
 		if (u>fullStep)
 		{
@@ -1078,7 +1103,7 @@ bool StepperCtrl::simpleFeedback(void)
 		}
 
 		ma=(abs(u)*(motorParams.currentMa-motorParams.currentHoldMa))
-						/ fullStep + motorParams.currentHoldMa;
+								/ fullStep + motorParams.currentHoldMa;
 
 		//ma=(abs(u)*(NVM->SystemParams.currentMa))/fullStep;
 
@@ -1086,6 +1111,8 @@ bool StepperCtrl::simpleFeedback(void)
 		{
 			ma=motorParams.currentMa;
 		}
+
+
 
 		y=y+u;
 		moveToAngle(y,ma); //35us
@@ -1108,16 +1135,23 @@ void StepperCtrl::enable(bool enable)
 {
 	bool state=TC5_ISR_Enabled;
 	disableTCInterrupts();
+	bool feedback=enableFeedback;
 
 	stepperDriver.enable(enable); //enable or disable the stepper driver as needed
 
+
+	if (enabled==true && enable==false)
+	{
+		feedback = false;
+	}
 	if (enabled==false && enable==true) //if we are enabling previous disabled motor
 	{
+		feedback = true;
 		setLocationFromEncoder();
 	}
 
 	enabled=enable;
-
+	enableFeedback=feedback;
 	if (state) enableTCInterrupts();
 }
 

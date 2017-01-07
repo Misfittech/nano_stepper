@@ -103,7 +103,7 @@ static inline void bridge2(int state)
 	}
 }
 
-void enableTCC0(uint8_t percent)
+static void enableTCC0(uint8_t percent)
 {
 #ifdef MECHADUINO_HARDWARE
 	return;
@@ -151,7 +151,7 @@ void enableTCC0(uint8_t percent)
 #endif
 }
 
-void setDAC(uint32_t DAC1, uint32_t DAC2)
+static void setDAC(uint32_t DAC1, uint32_t DAC2)
 {
 	TCC1->CC[1].reg = (uint32_t)DAC1; //D9 PA07 - VREF12
 	syncTCC(TCC1);
@@ -162,7 +162,7 @@ void setDAC(uint32_t DAC1, uint32_t DAC2)
 
 }
 
-void setupDAC(void)
+static void setupDAC(void)
 {
 	Tcc* TCCx = TCC1 ;
 

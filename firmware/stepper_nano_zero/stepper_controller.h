@@ -18,8 +18,10 @@
 #include "calibration.h"
 #include "A4954.h"
 #include "nonvolatile.h"
+#include "fet_driver.h" //for the NEMA23 10A
 
 #define N_DATA (1024)
+
 
 typedef enum {
 	STEPCTRL_NO_ERROR=0,
@@ -44,8 +46,11 @@ class StepperCtrl
 	private:
 		volatile bool enableFeedback; //true if we are using PID control algorithm
 		AS5047D encoder;
+#ifdef NEMA_23_10A_HW
+		FetDriver stepperDriver;
+#else
 		A4954 stepperDriver;
-
+#endif
 		volatile MotorParams_t motorParams;
 		volatile SystemParams_t systemParams;
 		volatile bool enabled;
@@ -69,6 +74,9 @@ class StepperCtrl
 		// units are in Angles/sec where 1 Angle=360deg/65536
 		volatile int64_t velocity;
 
+		int64_t zeroAngleOffset=0;
+
+
 		volatile int16_t data[N_DATA];
 
 		//does linear interpolation of the encoder calibration table
@@ -91,13 +99,14 @@ class StepperCtrl
 		bool pidFeedback(void);
 		bool simpleFeedback(void);
 		bool vpidFeedback(void);
+		int64_t getCurrentLocation(void);
+		int64_t getDesiredLocation(void);
 
 	public:
 		void setVelocity(int64_t vel); //set velocity for vPID mode
 		int64_t getVelocity(void);
 		int32_t getLoopError(void) {return loopError;}; //assume atomic read
-		int64_t getCurrentLocation(void);
-		int64_t getDesiredLocation(void);
+
 		bool calibrationValid(void) { return calTable.calValid();}  //returns true if calbiration is good
 
 		void updateParamsFromNVM(void);  //updates the parameters from NVM
@@ -124,7 +133,9 @@ class StepperCtrl
 		void encoderDiagnostics(char *ptrStr);
 		int32_t measureError(void);
 
-		float getCurrentAngle(void);
+		//these two functions are compenstated by the zero offset
+		int64_t getCurrentAngle(void);
+		int64_t getDesiredAngle(void);
 
 		void move(int dir, uint16_t steps); //forces motor to move even if feedback controller is turned off.
 		void enable(bool enable);
@@ -133,7 +144,7 @@ class StepperCtrl
 		int32_t getLoopTime(void) { return loopTimeus;}
 
 		void PID_Autotune(void);
-
+		void setZero(void);
 };
 
 #endif //__STEPPER_CONTROLLER_H__

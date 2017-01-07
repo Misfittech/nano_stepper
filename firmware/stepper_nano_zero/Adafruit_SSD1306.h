@@ -143,8 +143,8 @@ class Adafruit_SSD1306 : public Adafruit_GFX {
   Adafruit_SSD1306(int8_t DC, int8_t RST, int8_t CS);
   Adafruit_SSD1306(int8_t RST = -1);
 
-  void begin(uint8_t switchvcc = SSD1306_SWITCHCAPVCC, uint8_t i2caddr = SSD1306_I2C_ADDRESS, bool reset=true);
-  void ssd1306_command(uint8_t c);
+  bool begin(uint8_t switchvcc = SSD1306_SWITCHCAPVCC, uint8_t i2caddr = SSD1306_I2C_ADDRESS, bool reset=true);
+  uint8_t ssd1306_command(uint8_t c);
 
   void clearDisplay(void);
   void invertDisplay(uint8_t i);

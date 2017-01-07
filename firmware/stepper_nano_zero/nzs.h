@@ -19,6 +19,8 @@
 #include "board.h"
 #include "nzs_lcd.h"
 #include "stepper_controller.h"
+#include "planner.h"
+
 
 class NZS //nano Zero Stepper
 {

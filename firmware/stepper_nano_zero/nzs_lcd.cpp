@@ -30,7 +30,11 @@ void NZS_LCD::begin(StepperCtrl *ptrsCtrl)
 	//we need access to the stepper controller
 	ptrStepperCtrl=ptrsCtrl; //save a pointer to the stepper controller
 
-	display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+	displayEnabled=display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+	if (false == displayEnabled)
+	{
+		WARNING("NO display found, LCD will not be used");
+	}
 	Wire.setClock(800000);
 
 	//showSplash();
@@ -46,6 +50,10 @@ void NZS_LCD::begin(StepperCtrl *ptrsCtrl)
 void __attribute__ ((optimize("Ofast"))) NZS_LCD::lcdShow(const char *line1, const char *line2,const char *line3)
 {
 
+	if (false == displayEnabled)
+	{
+		return;
+	}
 	display.clearDisplay();
 	display.setTextSize(2);
 	display.setTextColor(WHITE);
@@ -61,12 +69,20 @@ void __attribute__ ((optimize("Ofast"))) NZS_LCD::lcdShow(const char *line1, con
 
 void NZS_LCD::showSplash(void)
 {
+	if (false == displayEnabled)
+	{
+		return;
+	}
 	lcdShow("Misfit"," Tech", VERSION);
 }
 
 
 void NZS_LCD::setMenu(menuItem_t *pMenu)
 {
+	if (false == displayEnabled)
+	{
+		return;
+	}
 	ptrMenu=pMenu;
 	menuIndex=0;
 }
@@ -76,6 +92,10 @@ void NZS_LCD::showOptions(void)
 {
 	int32_t i,j;
 	char str[3][26]={0};
+	if (false == displayEnabled)
+	{
+		return;
+	}
 
 	i=optionIndex;
 	j=0;
@@ -102,6 +122,10 @@ void __attribute__ ((optimize("Ofast"))) NZS_LCD::showMenu(void)
 {
 	int32_t i,j;
 	char str[3][26]={0};
+	if (false == displayEnabled)
+	{
+		return;
+	}
 
 	i=menuIndex;
 	j=0;
@@ -139,6 +163,11 @@ void __attribute__ ((optimize("Ofast"))) NZS_LCD::showMenu(void)
 
 void __attribute__ ((optimize("Ofast"))) NZS_LCD::updateMenu(void)
 {
+	if (false == displayEnabled)
+	{
+		return;
+	}
+
 	if (ptrOptions != NULL)
 	{
 		showOptions();
@@ -227,11 +256,16 @@ void __attribute__ ((optimize("Ofast"))) NZS_LCD::updateMenu(void)
 
 void NZS_LCD::forceMenuActive(void)
 {
+
 	menuActive=true;
 }
 
 void __attribute__((optimize("Ofast")))NZS_LCD::process(void)
 {
+	if (false == displayEnabled)
+	{
+		return;
+	}
 
 	if (false == menuActive || ptrMenu==NULL)
 	{
@@ -391,6 +425,10 @@ void StepperCtrl::menu(void)
 
 void NZS_LCD::updateLCD(void)
 {
+	if (false == displayEnabled)
+	{
+		return;
+	}
 	char str[3][25];
 	static int highRPM=0;
 	int32_t y,z,err;
@@ -408,13 +446,13 @@ void NZS_LCD::updateLCD(void)
 		t0=millis();
 		int64_t x,d;
 
-		LOG("loop time is %dus",ptrStepperCtrl->getLoopTime());
+		//LOG("loop time is %dus",ptrStepperCtrl->getLoopTime());
 
 
-		lastAngle=ptrStepperCtrl->getCurrentLocation();
+		lastAngle=ptrStepperCtrl->getCurrentAngle();
 		lasttime=millis();
 		delay(dt);
-		deg=ptrStepperCtrl->getCurrentLocation();
+		deg=ptrStepperCtrl->getCurrentAngle();
 		y=millis()-lasttime;
 		err=ptrStepperCtrl->getLoopError();
 
@@ -439,7 +477,7 @@ void NZS_LCD::updateLCD(void)
 		{
 			dt=100;
 		}
-		LOG("RPMs is %d, %d",x,d);
+		//LOG("RPMs is %d, %d",x,d);
 		switch(ptrStepperCtrl->getControlMode())
 		{
 			case CTRL_SIMPLE:
@@ -464,14 +502,14 @@ void NZS_LCD::updateLCD(void)
 
 
 		err=(err*360*100)/(int32_t)ANGLE_STEPS;
-		LOG("error is %d %d %d",err,(int32_t)ptrStepperCtrl->getCurrentLocation(),(int32_t)ptrStepperCtrl->getDesiredLocation());
+		//LOG("error is %d %d %d",err,(int32_t)ptrStepperCtrl->getCurrentLocation(),(int32_t)ptrStepperCtrl->getDesiredLocation());
 		z=(err)/100;
 		y=abs(err-(z*100));
 
 		sprintf(str[1],"%01d.%02d err", z,y);
 
 
-		deg=ptrStepperCtrl->getDesiredLocation();
+		deg=ptrStepperCtrl->getDesiredAngle();
 
 #ifndef NZS_LCD_ABSOULTE_ANGLE
 		deg=deg & ANGLE_MAX; //limit to 360 degrees
@@ -490,10 +528,10 @@ void NZS_LCD::updateLCD(void)
 
 		if (K==1)
 		{
-			sprintf(str[2],"%03d.%01dKdeg", x,y);
+			sprintf(str[2],"%03d.%01uKdeg", x,y);
 		}else
 		{
-			sprintf(str[2],"%03d.%01ddeg", x,y);
+			sprintf(str[2],"%03d.%01udeg", x,y);
 		}
 		str[0][10]='\0';
 		str[1][10]='\0';

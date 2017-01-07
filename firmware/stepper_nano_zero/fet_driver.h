@@ -18,11 +18,14 @@
 #ifndef FET_DRIVER_H_
 #define FET_DRIVER_H_
 
+
+
 #include <Arduino.h>
 #include "board.h"
 #include "angle.h"
 #include "sine.h"
 
+#ifdef NEMA_23_10A_HW
 #define FET_DRIVER_NUM_MICROSTEPS (SINE_STEPS/4) //number of steps to use for microstepping, default is 256
 
 //prvent someone for making a mistake with the code
@@ -60,8 +63,9 @@ public:
 	void setRotationDirection(bool forward) {forwardRotation=forward;};
 
 	void enable(bool enable) {enabled=enable;};
+	void limitCurrent(uint8_t x) {return;};
 };
 
 
-
+#endif //#ifdef NEMA_23_10A_HW
 #endif /* FET_DRIVER_H_ */

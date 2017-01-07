@@ -5,16 +5,27 @@
 #include <stdlib.h>
 #include "nonvolatile.h"
 #include "Reset.h"
+#include "nzs.h"
+#include "ftoa.h"
 
 
 #define COMMANDS_PROMPT (":>")
 sCmdUart UsbUart;
 
+
+static int isPowerOfTwo (unsigned int x)
+{
+	while (((x % 2) == 0) && x > 1) /* While x is even and > 1 */
+		x /= 2;
+	return (x == 1);
+}
+
+
 CMD_STR(help,"Displays this message");
 CMD_STR(getcal,"Prints the calibration table");
 CMD_STR(calibrate,"Calbirates the encoder, should be done with motor disconnected from machine");
 CMD_STR(testcal,"tests the calibaration of the encoder");
-//CMD_STR(microstep,"gets/sets the microstep size, example 'microstep 16'");
+CMD_STR(microsteps,"gets/sets the microstep size, example 'microsteps 16'");
 CMD_STR(step, "Steps motor one step, optionally direction can be set is 'step 1' for reverse");
 CMD_STR(feedback, "enable or disable feedback controller, 'feedback 0' - disables, 'feedback 1' - enables");
 CMD_STR(readpos, "reads the current angle as 16bit number, applies calibration if valid");
@@ -27,13 +38,24 @@ CMD_STR(ppid, "with no arguments prints POSITIONAL PID parameters, with argument
 		"Where Kp,Ki,Kd are floating point numbers");
 //CMD_STR(testringing ,"Steps motor at various currents and measures encoder");
 //CMD_STR(microsteperror ,"test error on microstepping")
-CMD_STR(sysparams, "with no arguments read parameters, will set with arguments");
-CMD_STR(motorparams, "with no arguments read parameters, will set with arguments");
+CMD_STR(dirpin, "with no arguments read dirpin setting, with argument sets direction pin rotation");
+CMD_STR(errorlimit, "gets/set the error limit which will assert error pin (when error pin is set for error output)");
+CMD_STR(ctrlmode, "gets/set the feedback controller mode of operation");
+CMD_STR(maxcurrent, "gets/set the maximum motor current allowed in milliAmps");
+CMD_STR(holdcurrent, "gets/set the motor holding current in milliAmps, only used in the simple positional PID mode");
+CMD_STR(motorwiring, "gets/set the motor wiring direction, should only be used by experts");
+CMD_STR(stepsperrotation, "gets/set the motor steps per rotation, should only be used by experts");
+
+//CMD_STR(sysparams, "with no arguments read parameters, will set with arguments");
+//CMD_STR(motorparams, "with no arguments read parameters, will set with arguments");
 CMD_STR(boot, "Enters the bootloader");
 CMD_STR(move, "moves encoder to absolute angle in degrees 'move 400.1'");
-CMD_STR(printdata, "prints last n error terms");
+//CMD_STR(printdata, "prints last n error terms");
 CMD_STR(velocity, "gets/set velocity in RPMs");
 CMD_STR(factoryreset, "resets board to factory defaults");
+CMD_STR(stop, "stops the motion planner");
+CMD_STR(setzero, "set the reference angle to zero");
+
 //List of supported commands
 sCommand Cmds[] =
 {
@@ -41,7 +63,7 @@ sCommand Cmds[] =
 		COMMAND(calibrate),
 		COMMAND(getcal),
 		COMMAND(testcal),
-		//COMMAND(microstep),
+		COMMAND(microsteps),
 		COMMAND(step),
 		COMMAND(feedback),
 		COMMAND(readpos),
@@ -51,17 +73,359 @@ sCommand Cmds[] =
 		COMMAND(ppid),
 		//COMMAND(testringing),
 		//COMMAND(microsteperror),
-		COMMAND(sysparams),
-		COMMAND(motorparams),
+		COMMAND(dirpin),
+		COMMAND(errorlimit),
+		COMMAND(ctrlmode),
+		COMMAND(maxcurrent),
+		COMMAND(holdcurrent),
+		COMMAND(motorwiring),
+		COMMAND(stepsperrotation),
+
+		//COMMAND(sysparams),
+		//COMMAND(motorparams),
 		COMMAND(boot),
 		COMMAND(move),
-		COMMAND(printdata),
+		//COMMAND(printdata),
 		COMMAND(velocity),
 		COMMAND(factoryreset),
+		COMMAND(stop),
+		COMMAND(setzero),
 
 		{"",0,""}, //End of list signal
 };
 
+static int setzero_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	stepperCtrl.setZero();
+	return 0;
+}
+
+
+static int stop_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	SmartPlanner.stop();
+	return 0;
+}
+
+
+
+static int stepsperrotation_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+
+	if (argc == 0)
+	{
+		uint32_t x;
+		x=NVM->motorParams.fullStepsPerRotation;
+		CommandPrintf(ptrUart,"full steps per rotation %u\n\r",x);
+		return 0;
+	}
+
+	if (argc == 1)
+	{
+		uint32_t x;
+
+		x=atol(argv[0]);
+
+		if (x==200 || x==400)
+		{
+			MotorParams_t motorParams;
+
+			memcpy(&motorParams,&NVM->motorParams, sizeof(motorParams) );
+			motorParams.fullStepsPerRotation=x;
+
+			nvmWriteMotorParms(motorParams);
+			stepperCtrl.updateParamsFromNVM();
+
+
+			x=NVM->motorParams.fullStepsPerRotation;
+			CommandPrintf(ptrUart,"full steps per rotation %u\n\r",x);
+			CommandPrintf(ptrUart,"please power cycle board\n\r");
+			return 0;
+		}
+
+	}
+	CommandPrintf(ptrUart,"usage 'stepsperrotation 200' or 'stepsperrotation 400'\n\r");
+
+	return 1;
+}
+
+static int motorwiring_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+
+	if (argc == 0)
+	{
+		uint32_t x;
+		x=NVM->motorParams.motorWiring;
+		CommandPrintf(ptrUart,"motor wiring %u\n\r",x);
+		return 0;
+	}
+
+	if (argc == 1)
+	{
+		uint32_t x;
+
+		x=atol(argv[0]);
+
+		if (x<=1)
+		{
+			MotorParams_t motorParams;
+
+			memcpy(&motorParams,&NVM->motorParams, sizeof(motorParams) );
+			motorParams.motorWiring=x;
+
+			nvmWriteMotorParms(motorParams);
+			stepperCtrl.updateParamsFromNVM();
+
+
+			x=NVM->motorParams.motorWiring;
+			CommandPrintf(ptrUart,"motor wiring %u\n\r",x);
+			CommandPrintf(ptrUart,"please power cycle board\n\r");
+			return 0;
+		}
+
+	}
+	CommandPrintf(ptrUart,"usage 'motorwiring 0' or 'motorwiring 1'\n\r");
+
+	return 1;
+}
+
+static int holdcurrent_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+
+	if (argc == 0)
+	{
+		uint32_t x;
+		x=NVM->motorParams.currentHoldMa;
+		CommandPrintf(ptrUart,"hold current %u mA\n\r",x);
+		return 0;
+	}
+
+	if (argc == 1)
+	{
+		uint32_t x;
+
+		x=atol(argv[0]);
+
+		MotorParams_t motorParams;
+
+		memcpy(&motorParams,&NVM->motorParams, sizeof(motorParams) );
+		motorParams.currentHoldMa=x;
+
+		nvmWriteMotorParms(motorParams);
+		stepperCtrl.updateParamsFromNVM();
+
+
+		x=NVM->motorParams.currentHoldMa;
+		CommandPrintf(ptrUart,"hold current %u mA\n\r",x);
+		return 0;
+
+
+	}
+	CommandPrintf(ptrUart, "use 'holdcurrent 1000' to set maximum current to 1.0A");
+
+	return 1;
+}
+
+
+static int maxcurrent_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+
+	if (argc == 0)
+	{
+		uint32_t x;
+		x=NVM->motorParams.currentMa;
+		CommandPrintf(ptrUart,"max current %u mA\n\r",x);
+		return 0;
+	}
+
+	if (argc == 1)
+	{
+		uint32_t x;
+
+		x=atol(argv[0]);
+
+		MotorParams_t motorParams;
+
+		memcpy(&motorParams,&NVM->motorParams, sizeof(motorParams) );
+
+		motorParams.currentMa=x;
+		nvmWriteMotorParms(motorParams);
+		stepperCtrl.updateParamsFromNVM();
+
+
+		x=NVM->motorParams.currentMa;
+		CommandPrintf(ptrUart,"max current %u mA\n\r",x);
+		return 0;
+
+
+	}
+	CommandPrintf(ptrUart, "use 'maxcurrent 2000' to set maximum current to 2.0A");
+
+	return 1;
+}
+
+
+static int ctrlmode_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	bool ret;
+	if (argc == 0)
+	{
+		switch(NVM->SystemParams.controllerMode)
+		{
+			case CTRL_OFF:
+				CommandPrintf(ptrUart,"controller Off(0)");
+				return 0;
+			case CTRL_OPEN:
+				CommandPrintf(ptrUart,"controller Open-loop(1)");
+				return 0;
+			case CTRL_SIMPLE:
+				CommandPrintf(ptrUart,"controller Simple-Position-PID(2)");
+				return 0;
+			case CTRL_POS_PID:
+				CommandPrintf(ptrUart,"controller Current-Position-PID(3)");
+				return 0;
+			case CTRL_POS_VELOCITY_PID:
+				CommandPrintf(ptrUart,"controller Velocity-PID(4)");
+				return 0;
+
+		}
+		return 1;
+	}
+
+	if (argc == 1)
+	{
+		uint32_t x;
+
+		x=atol(argv[0]);
+
+		if (x<=4)
+		{
+			SystemParams_t systemParams;
+
+			memcpy(&systemParams,&NVM->SystemParams, sizeof(systemParams) );
+
+			systemParams.controllerMode=(feedbackCtrl_t)ANGLE_FROM_DEGREES(x);
+
+			nvmWriteSystemParms(systemParams);
+			stepperCtrl.updateParamsFromNVM();
+
+			switch(NVM->SystemParams.controllerMode)
+			{
+				case CTRL_OFF:
+					CommandPrintf(ptrUart,"controller Off(0)");
+					return 0;
+				case CTRL_OPEN:
+					CommandPrintf(ptrUart,"controller Open-loop(1)");
+					return 0;
+				case CTRL_SIMPLE:
+					CommandPrintf(ptrUart,"controller Simple-Position-PID(2)");
+					return 0;
+				case CTRL_POS_PID:
+					CommandPrintf(ptrUart,"controller Current-Position-PID(3)");
+					return 0;
+				case CTRL_POS_VELOCITY_PID:
+					CommandPrintf(ptrUart,"controller Velocity-PID(4)");
+					return 0;
+
+			}
+			return 1;
+		}
+
+	}
+	CommandPrintf(ptrUart, "use 'ctrlmode [0 .. 4]' to set control mode");
+
+	return 1;
+}
+static int errorlimit_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	bool ret;
+	char str[20];
+	if (argc == 0)
+	{
+		float x;
+		x=ANGLE_T0_DEGREES(NVM->SystemParams.errorLimit);
+		ftoa(x,str,2,'f');
+		CommandPrintf(ptrUart,"errorLimit %s deg\n\r",str);
+		return 0;
+	}
+
+	if (argc == 1)
+	{
+		float x;
+
+		x=fabs(atof(argv[0]));
+
+		SystemParams_t systemParams;
+
+		memcpy(&systemParams,&NVM->SystemParams, sizeof(systemParams) );
+
+		systemParams.errorLimit=ANGLE_FROM_DEGREES(x);
+
+		nvmWriteSystemParms(systemParams);
+		stepperCtrl.updateParamsFromNVM();
+
+		x=ANGLE_T0_DEGREES(NVM->SystemParams.errorLimit);
+		ftoa(x,str,2,'f');
+		CommandPrintf(ptrUart,"errorLimit %s deg\n\r",str);
+		return 0;
+
+
+	}
+	CommandPrintf(ptrUart, "use 'errorlimit 1.8' to set error limit to 1.8 degrees");
+
+	return 1;
+}
+
+
+static int dirpin_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	bool ret;
+
+	if (argc == 0)
+	{
+		if (CW_ROTATION == NVM->SystemParams.dirPinRotation)
+		{
+			CommandPrintf(ptrUart,"dirpin CW(%d)\n\r",(uint32_t)NVM->SystemParams.dirPinRotation);
+		}else
+		{
+			CommandPrintf(ptrUart,"dirpin CCW(%d)\n\r",(uint32_t)NVM->SystemParams.dirPinRotation);
+		}
+		return 0;
+	}
+
+	if (argc == 1)
+	{
+		uint32_t x;
+
+		x=abs(atol(argv[0]));
+		if (x<=1)
+		{
+
+			SystemParams_t systemParams;
+
+			memcpy(&systemParams,&NVM->SystemParams, sizeof(systemParams) );
+
+			systemParams.dirPinRotation=(RotationDir_t)x;
+
+			nvmWriteSystemParms(systemParams);
+			stepperCtrl.updateParamsFromNVM();
+
+			if (CW_ROTATION == NVM->SystemParams.dirPinRotation)
+			{
+				CommandPrintf(ptrUart,"dirpin CW(%d)\n\r",(uint32_t)NVM->SystemParams.dirPinRotation);
+			}else
+			{
+				CommandPrintf(ptrUart,"dirpin CCW(%d)\n\r",(uint32_t)NVM->SystemParams.dirPinRotation);
+			}
+			return 0;
+
+		}
+	}
+	CommandPrintf(ptrUart, "used 'dirpin 0' for CW rotation and 'dirpin 1' for CCW");
+
+
+	return 1;
+}
 
 static int factoryreset_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
@@ -89,15 +453,15 @@ static int velocity_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	return 0;
 }
 
-
-static int printdata_cmd(sCmdUart *ptrUart,int argc, char * argv[])
-{
-	int32_t x;
-
-	stepperCtrl.printData();
-
-	return 0;
-}
+//
+//static int printdata_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+//{
+//	int32_t x;
+//
+//	stepperCtrl.printData();
+//
+//	return 0;
+//}
 
 
 static int move_cmd(sCmdUart *ptrUart,int argc, char * argv[])
@@ -114,6 +478,49 @@ static int move_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 		//			f=1.8;
 		//		if (f<-1.8)
 		//			f=-1.8;
+		x=ANGLE_FROM_DEGREES(f);
+		LOG("moving %d", x);
+
+		stepperCtrl.moveToAbsAngle(x);
+	}
+	if (2 == argc)
+	{
+		float f,rpm,a,y;
+		float pos,dx;
+
+		f=atof(argv[0]);
+		rpm=atof(argv[1]);
+		//		if (f>1.8)
+		//			f=1.8;
+		//		if (f<-1.8)
+		//			f=-1.8;
+
+		SmartPlanner.moveConstantVelocity(f,rpm);
+		return 0;
+		a=360*rpm/60/1000; //rotations/100ms
+
+		pos=ANGLE_T0_DEGREES(stepperCtrl.getCurrentAngle());
+		y=pos;
+		if (y>f) a=-a;
+
+		SerialUSB.println(f);
+		SerialUSB.println(y);
+		SerialUSB.println(a);
+
+		while (abs(y-f)>(2*abs(a)))
+		{
+			//			SerialUSB.println();
+			//			SerialUSB.println(f);
+			//		SerialUSB.println(y);
+			//		SerialUSB.println(a);
+			y=y+a;
+
+			x=ANGLE_FROM_DEGREES(y);
+			//LOG("moving %d", x);
+			stepperCtrl.moveToAbsAngle(x);
+			delay(1);
+			//y=stepperCtrl.getCurrentAngle();
+		}
 		x=ANGLE_FROM_DEGREES(f);
 		LOG("moving %d", x);
 		stepperCtrl.moveToAbsAngle(x);
@@ -169,48 +576,48 @@ static int testringing_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 }
  */
 
-static int sysparams_cmd(sCmdUart *ptrUart,int argc, char * argv[])
-{
-	if (0 == argc)
-	{
-		CommandPrintf(ptrUart,"microsteps %d\n\r",NVM->SystemParams.microsteps);
-		CommandPrintf(ptrUart,"dirPinRotation %d\n\r",NVM->SystemParams.dirPinRotation);
-		CommandPrintf(ptrUart,"errorLimit %d\n\r",NVM->SystemParams.errorLimit);
-		CommandPrintf(ptrUart,"errorPinMode %d\n\r",NVM->SystemParams.errorPinMode);
-		CommandPrintf(ptrUart,"controllerMode %d\n\r",NVM->SystemParams.controllerMode);
+//static int sysparams_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+//{
+//	if (0 == argc)
+//	{
+//		CommandPrintf(ptrUart,"microsteps %d\n\r",NVM->SystemParams.microsteps);
+//		CommandPrintf(ptrUart,"dirPinRotation %d\n\r",NVM->SystemParams.dirPinRotation);
+//		CommandPrintf(ptrUart,"errorLimit %d\n\r",NVM->SystemParams.errorLimit);
+//		CommandPrintf(ptrUart,"errorPinMode %d\n\r",NVM->SystemParams.errorPinMode);
+//		CommandPrintf(ptrUart,"controllerMode %d\n\r",NVM->SystemParams.controllerMode);
+//
+//	} else	if (5 == argc)
+//	{
+//		int32_t x;
+//		SystemParams_t systemParams;
+//
+//		systemParams.microsteps=atol(argv[0]);
+//		x=atol(argv[1]);
+//		systemParams.dirPinRotation=CCW_ROTATION;
+//		if (x==0)
+//		{
+//			systemParams.dirPinRotation=CW_ROTATION;
+//		}
+//		systemParams.errorLimit=atol(argv[2]);
+//		systemParams.errorPinMode=(ErrorPinMode_t)atol(argv[3]);
+//		systemParams.controllerMode=(feedbackCtrl_t)atol(argv[4]);
+//
+//		nvmWriteSystemParms(systemParams);
+//		stepperCtrl.updateParamsFromNVM();
+//
+//		CommandPrintf(ptrUart,"microsteps %d\n\r",NVM->SystemParams.microsteps);
+//		CommandPrintf(ptrUart,"dirPinRotation %d\n\r",NVM->SystemParams.dirPinRotation);
+//		CommandPrintf(ptrUart,"errorLimit %d\n\r",NVM->SystemParams.errorLimit);
+//		CommandPrintf(ptrUart,"errorPinMode %d\n\r",NVM->SystemParams.errorPinMode);
+//		CommandPrintf(ptrUart,"controllerMode %d\n\r",NVM->SystemParams.controllerMode);
+//	} else
+//	{
+//		CommandPrintf(ptrUart, "try 'sysparams microsteps dirPinRotation errorLimit errorPinMode controllerMode'\n\r\tlike 'sysparams 16 0 327 0 2'\n\e");
+//	}
+//	return 0;
+//}
 
-	} else	if (5 == argc)
-	{
-		int32_t x;
-		SystemParams_t systemParams;
-
-		systemParams.microsteps=atol(argv[0]);
-		x=atol(argv[1]);
-		systemParams.dirPinRotation=CCW_ROTATION;
-		if (x==0)
-		{
-			systemParams.dirPinRotation=CW_ROTATION;
-		}
-		systemParams.errorLimit=atol(argv[2]);
-		systemParams.errorPinMode=(ErrorPinMode_t)atol(argv[3]);
-		systemParams.controllerMode=(feedbackCtrl_t)atol(argv[4]);
-
-		nvmWriteSystemParms(systemParams);
-		stepperCtrl.updateParamsFromNVM();
-
-		CommandPrintf(ptrUart,"microsteps %d\n\r",NVM->SystemParams.microsteps);
-		CommandPrintf(ptrUart,"dirPinRotation %d\n\r",NVM->SystemParams.dirPinRotation);
-		CommandPrintf(ptrUart,"errorLimit %d\n\r",NVM->SystemParams.errorLimit);
-		CommandPrintf(ptrUart,"errorPinMode %d\n\r",NVM->SystemParams.errorPinMode);
-		CommandPrintf(ptrUart,"controllerMode %d\n\r",NVM->SystemParams.controllerMode);
-	} else
-	{
-		CommandPrintf(ptrUart, "try 'sysparams microsteps dirPinRotation errorLimit errorPinMode controllerMode'\n\r\tlike 'sysparams 16 0 327 0 2'\n\e");
-	}
-	return 0;
-}
-
-
+/*
 static int motorparams_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	if (0 == argc)
@@ -220,7 +627,7 @@ static int motorparams_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 		CommandPrintf(ptrUart,"motorWiring %d\n\r",NVM->motorParams.motorWiring);
 		CommandPrintf(ptrUart,"fullStepsPerRotation %d\n\r",NVM->motorParams.fullStepsPerRotation);
 
-	} else	if (5 == argc)
+	} else	if (4 == argc)
 	{
 		int32_t x;
 		MotorParams_t motorParams;
@@ -243,7 +650,7 @@ static int motorparams_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	}
 	return 0;
 }
-
+*/
 static int vpid_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	CommandPrintf(ptrUart, "args %d\n\r",argc);
@@ -389,7 +796,7 @@ static int readpos_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	float pos;
 	int32_t x,y;
 
-	pos=stepperCtrl.getCurrentAngle();
+	pos=ANGLE_T0_DEGREES(stepperCtrl.getCurrentAngle());
 	x=int(pos);
 	y=abs((pos-x)*100);
 	CommandPrintf(ptrUart,"encoder %d.%02d",x,y);
@@ -431,24 +838,42 @@ static int step_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	return 0;
 }
 
-/*
-static int microstep_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+
+static int microsteps_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	bool ret;
 
 	if (argc != 1)
 	{
-		CommandPrintf(ptrUart,"%d microsteps\n\r", stepperCtrl.getMicroSteps());
+		CommandPrintf(ptrUart,"microsteps %d\n\r",NVM->SystemParams.microsteps);
 		return 0;
 	}
-	ret=stepperCtrl.changeMicrostep(atoi(argv[0]));
-	if (ret != true)
+
+	int32_t x;
+
+	x=atol(argv[0]);
+	if (isPowerOfTwo(x) && x>0 && x<=256)
 	{
-		CommandPrintf(ptrUart,"Could not set microstep\n\r");
+		SystemParams_t systemParams;
+
+		memcpy(&systemParams,&NVM->SystemParams, sizeof(systemParams) );
+
+		systemParams.microsteps=atol(argv[0]);
+
+		nvmWriteSystemParms(systemParams);
+		stepperCtrl.updateParamsFromNVM();
+
+		CommandPrintf(ptrUart,"microsteps %d\n\r",NVM->SystemParams.microsteps);
+
+	}else
+	{
+		CommandPrintf(ptrUart,"number of microsteps must be a power of 2 between 1 and 256");
+		return 1; //return error
 	}
+
 	return 0;
 }
- */
+
 
 // print out the help strings for the commands
 static int help_cmd(sCmdUart *ptrUart,int argc, char * argv[])

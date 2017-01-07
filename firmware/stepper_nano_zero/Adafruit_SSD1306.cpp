@@ -166,7 +166,7 @@ Adafruit_GFX(SSD1306_LCDWIDTH, SSD1306_LCDHEIGHT) {
 }
 
 
-void Adafruit_SSD1306::begin(uint8_t vccstate, uint8_t i2caddr, bool reset) {
+bool Adafruit_SSD1306::begin(uint8_t vccstate, uint8_t i2caddr, bool reset) {
   _vccstate = vccstate;
   _i2caddr = i2caddr;
 
@@ -225,8 +225,13 @@ void Adafruit_SSD1306::begin(uint8_t vccstate, uint8_t i2caddr, bool reset) {
     // turn on VCC (9V?)
   }
 
+  uint8_t ret;
   // Init sequence
-  ssd1306_command(SSD1306_DISPLAYOFF);                    // 0xAE
+  ret=ssd1306_command(SSD1306_DISPLAYOFF);                    // 0xAE
+  if (ret != 0)
+  {
+	  return false;
+  }
   ssd1306_command(SSD1306_SETDISPLAYCLOCKDIV);            // 0xD5
   ssd1306_command(0x80);                                  // the suggested ratio 0x80
 
@@ -285,6 +290,7 @@ void Adafruit_SSD1306::begin(uint8_t vccstate, uint8_t i2caddr, bool reset) {
   ssd1306_command(SSD1306_DEACTIVATE_SCROLL);
 
   ssd1306_command(SSD1306_DISPLAYON);//--turn on oled panel
+  return true;
 }
 
 
@@ -296,7 +302,13 @@ void Adafruit_SSD1306::invertDisplay(uint8_t i) {
   }
 }
 
-void Adafruit_SSD1306::ssd1306_command(uint8_t c) {
+// Errors:
+//  0 : Success
+//  1 : Data too long
+//  2 : NACK on transmit of address
+//  3 : NACK on transmit of data
+//  4 : Other error
+uint8_t Adafruit_SSD1306::ssd1306_command(uint8_t c) {
   if (sid != -1)
   {
     // SPI

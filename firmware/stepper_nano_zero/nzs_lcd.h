@@ -47,6 +47,7 @@ typedef struct {
 class NZS_LCD
 {
 	private:
+		bool displayEnabled;
 		Adafruit_SSD1306 display;
 		StepperCtrl *ptrStepperCtrl;
 		menuItem_t *ptrMenu;

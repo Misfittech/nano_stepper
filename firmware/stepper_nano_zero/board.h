@@ -30,19 +30,22 @@
 
 #define NZS_CONTROL_LOOP_HZ (6000) //update rate of control loop, this should be limited to less than 5k
 
+#define NZS_MAX_VELOCITY_AVG  (100) // number contol loop samples to average maximum velocity.
+
 #define NZS_LCD_ABSOULTE_ANGLE  //define this to show angle from zero in positive and negative direction
 								// for example 2 rotations from start will be angle of 720 degrees
 
-#define VERSION "FW: 0.08" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.09" //this is what prints on LCD during splash screen
 
 #define SERIAL_BAUD (115200) //baud rate for the serial ports
 
-#ifdef MECHADUINO_HARDWARE
-#define DISABLE_LCD //define this to disable the LCD calls
-#endif
-
 
 #define F_CPU (48000000UL)
+
+
+/* TODO are flaged with TODO
+ *   TODO - add detection of magnet to make sure PCB is on motor
+ */
 
 /* change log
  *   0.02 added fixes for 0.9 degree motor
@@ -59,7 +62,17 @@
  *   	- added test on power up to see if motor power is applied.
  *   	- added factory reset command
  *   	- pPID is not stable in my testing.
- *
+ *   0.08
+ *   	- moved enable pin processing out of interrupt context
+ *   	- added mode for inverted logic on the enable pin
+ *   	- added pin definitions for NEMA23 10A hardware
+ *   	- Changed enable such that it does not move motor but just sets current posistion
+ *	 0.09
+ *	 	- enabled auto detection of LCD
+ *	 	- cleaned up the commands, made motorparams and systemparams individual commands
+ *	 	- added the option to the move command to move at a constant RPM
+ *	 	- Added the setzero command to zero the relative location of motor
+ *	 	- Added the stop command to stop the planner based moves.
  *
  */
 
@@ -90,15 +103,16 @@ typedef enum {
 
 
 // ******** TIMER USAGE A4954 versions ************
-//TCC0 is used for DAC PWM to the A4954
-//TCC1 can be used as PWM for the input pins on the A4954
+//TCC1 is used for DAC PWM to the A4954
+//TCC0 can be used as PWM for the input pins on the A4954
+//D0 step input could use TCC1 or TCC0 if not used
 //TC5 is use for timing the control loop
 
 // ******** TIMER USAGE NEMA23 10A versions ************
-//TCC0 is used for DAC PWM to the comparators
-//TCC1 maybe used for the step input pin or as PWM for the FET IN pins
+//TCC1 is used for DAC PWM to the comparators
+//TCC0 PWM for the FET IN pins
+//D10 step input could use TC3 or TCC0 if not used
 //TC5 is use for timing the control loop
-//TC3 & TC4 is used for the FET driver to
 
 
 
@@ -145,17 +159,25 @@ typedef enum {
 #define COMP_FET_A		 (18)//analogInputToDigitalPin(PIN_A4))
 #define COMP_FET_B		 (9)
 
-#ifndef NEMA_23_10A_HW
 
-#define PIN_RED_LED     (13)
+
+
 #ifndef MECHADUINO_HARDWARE
 #define PIN_YELLOW_LED  (8)
 #endif
 
-#define PIN_SW1		(15)//analogInputToDigitalPin(PIN_A1))
-#define PIN_SW3		(14)//analogInputToDigitalPin(PIN_A0))
-#define PIN_SW4		(19)//analogInputToDigitalPin(PIN_A5))
 
+#define PIN_SW1		(19)//analogInputToDigitalPin(PIN_A1))
+#define PIN_SW3		(14)//analogInputToDigitalPin(PIN_A0))
+#define PIN_SW4		(15)//analogInputToDigitalPin(PIN_A5))
+
+#ifdef NEMA_23_10A_HW
+#undef PIN_YELLOW_LED
+#define PIN_YELLOW_LED  	(26) //TXLED (PA27)
+#endif //NEMA_23_10A_HW
+
+
+#define PIN_RED_LED     (13)
 #define PIN_A4954_IN3		(5)
 #define PIN_A4954_IN4		(6)
 #define PIN_A4954_IN2		(7)
@@ -167,17 +189,7 @@ typedef enum {
 #define PIN_A4954_VREF34	(4)
 #define PIN_A4954_VREF12	(9)
 
-#else //NEMA 23 10A hardware
 
-#define PIN_SW1		(19)//analogInputToDigitalPin(PIN_A5))
-#define PIN_SW3		(14)//analogInputToDigitalPin(PIN_A0))
-#define PIN_SW4		(15)//analogInputToDigitalPin(PIN_A1))
-
-#define PIN_RED_LED     	(13)
-#define PIN_YELLOW_LED  	(26) //TXLED (PA27)
-
-
-#endif //NEMA_23_10A_HW
 
 //Here are some useful macros
 #define DIVIDE_WITH_ROUND(x,y)  ((x+y/2)/y)
@@ -257,6 +269,13 @@ static void inline RED_LED(bool state)
 {
 	digitalWrite(PIN_RED_LED,state);
 }
+
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
+#define ABS(a) (((a)>(0))?(a):(-(a)))
+#define DIV(x,y) (((y)>(0))?((x)/(y)):(4294967295))
+
+#define NVIC_IS_IRQ_ENABLED(x) (NVIC->ISER[0] & (1 << ((uint32_t)(x) & 0x1F)))!=0
 
 
 #endif//__BOARD_H__
