@@ -1,5 +1,6 @@
-# nano stepper
-Nano zero based stepper motor controller
+# Smart Stepper (also known as the nano zero stepper)
+
+
 
 Uses feedback to control stepper motor. 
 
