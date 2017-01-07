@@ -113,7 +113,5 @@ Much of the work is based on Mechaduino project:
 https://github.com/jcchurch13/Mechaduino-Firmware
 
 This firmware also runs on the Mechaduino hardware and has many improvements over stock Mechaduino firmware. 
-Note the Mechaduino does have a few hardware bugs that the firmware can not fix:
-1. AS4954 driver is not thermally soldered to PCB on Mechaduino 0.1 
-2. A5047D has been known to lock up with reboots on Mechaduino 0.1 
+Note the Mechaduino 0.1 does have a few hardware issues that the firmware can not fix:
 
