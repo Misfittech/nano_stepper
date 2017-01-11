@@ -9,6 +9,7 @@ If you want to support the work on the firmware and hardware consider buying har
 
 # How to install hardware
 [Hardware install](http://misfittech.net/2016/11/29/installing-the-nano-zero-stepper/)
+[Arduino install] (http://misfittech.net/2016/07/27/arduino_install/)
 
 # Command List
 
