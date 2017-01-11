@@ -304,7 +304,7 @@ static int ctrlmode_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 
 			memcpy(&systemParams,&NVM->SystemParams, sizeof(systemParams) );
 
-			systemParams.controllerMode=(feedbackCtrl_t)ANGLE_FROM_DEGREES(x);
+			systemParams.controllerMode=(feedbackCtrl_t)(x);
 
 			nvmWriteSystemParms(systemParams);
 			stepperCtrl.updateParamsFromNVM();

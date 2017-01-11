@@ -27,15 +27,13 @@
 
 #define NZS_AS5047_PIPELINE //does a pipeline read of encoder, which is slightly faster
 
+#define NZS_CONTROL_LOOP_HZ (6000) //update rate of control loop
 
-#define NZS_CONTROL_LOOP_HZ (6000) //update rate of control loop, this should be limited to less than 5k
-
-#define NZS_MAX_VELOCITY_AVG  (100) // number contol loop samples to average maximum velocity.
 
 #define NZS_LCD_ABSOULTE_ANGLE  //define this to show angle from zero in positive and negative direction
 								// for example 2 rotations from start will be angle of 720 degrees
 
-#define VERSION "FW: 0.09" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.10" //this is what prints on LCD during splash screen
 
 #define SERIAL_BAUD (115200) //baud rate for the serial ports
 
@@ -73,6 +71,8 @@
  *	 	- added the option to the move command to move at a constant RPM
  *	 	- Added the setzero command to zero the relative location of motor
  *	 	- Added the stop command to stop the planner based moves.
+ *	 0.10
+ *	 	-Fixed bug in switching control mode to 3
  *
  */
 

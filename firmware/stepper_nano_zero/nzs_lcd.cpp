@@ -446,7 +446,7 @@ void NZS_LCD::updateLCD(void)
 		t0=millis();
 		int64_t x,d;
 
-		//LOG("loop time is %dus",ptrStepperCtrl->getLoopTime());
+		LOG("loop time is %dus",ptrStepperCtrl->getLoopTime());
 
 
 		lastAngle=ptrStepperCtrl->getCurrentAngle();
@@ -477,6 +477,7 @@ void NZS_LCD::updateLCD(void)
 		{
 			dt=100;
 		}
+		str[0][0]='\0';
 		//LOG("RPMs is %d, %d",x,d);
 		switch(ptrStepperCtrl->getControlMode())
 		{
@@ -487,6 +488,7 @@ void NZS_LCD::updateLCD(void)
 			case CTRL_POS_PID:
 				sprintf(str[0], "%dRPM pPID",RPM);
 				break;
+
 			case CTRL_POS_VELOCITY_PID:
 				sprintf(str[0], "%dRPM vPID",RPM);
 				break;
@@ -496,6 +498,9 @@ void NZS_LCD::updateLCD(void)
 				break;
 			case CTRL_OFF:
 				sprintf(str[0], "%dRPM off",RPM);
+				break;
+			default:
+				sprintf(str[0], "error %u",ptrStepperCtrl->getControlMode());
 				break;
 
 		}
