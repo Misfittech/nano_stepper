@@ -7,7 +7,7 @@ If you want to support the work on the firmware and hardware consider buying har
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=4JAEK4G24W2U4)
 
-# How to install hardware
+# How to Install 
 [Hardware install](http://misfittech.net/2016/11/29/installing-the-nano-zero-stepper/)
 
 [Arduino install] (http://misfittech.net/2016/07/27/arduino_install/) for building firmware
