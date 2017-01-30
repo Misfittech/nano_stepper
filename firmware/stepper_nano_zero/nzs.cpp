@@ -545,6 +545,9 @@ void NZS::begin(void)
 
 void NZS::loop(void)
 {
+
+	//LOG("loop time is %dus",stepperCtrl.getLoopTime());
+
 	if (enableState != stepperCtrl.getEnable())
 	{
 		stepperCtrl.enable(enableState);

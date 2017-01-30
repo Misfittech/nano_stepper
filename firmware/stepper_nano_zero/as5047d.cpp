@@ -70,7 +70,7 @@ boolean AS5047D::begin(int csPin)
 	pinMode(PIN_MISO,INPUT);
 
 	error=false;
-	SPISettings settingsA(10000000, MSBFIRST, SPI_MODE1);             ///400000, MSBFIRST, SPI_MODE1);
+	SPISettings settingsA(5000000, MSBFIRST, SPI_MODE1);             ///400000, MSBFIRST, SPI_MODE1);
 	chipSelectPin=csPin;
 
 	LOG("csPin is %d",csPin);
@@ -96,6 +96,7 @@ boolean AS5047D::begin(int csPin)
 			error=true;
 			return false;
 		}
+		LOG("data is 0x%04X",data);
 		data=readAddress(AS5047D_CMD_DIAAGC);
 	}
 
@@ -133,7 +134,6 @@ int16_t AS5047D::readAddress(uint16_t addr)
 	data=SPI.transfer16(0x00);
 
 	digitalWrite(chipSelectPin, HIGH);
-
 
 	if (data & (1<<14))
 	{

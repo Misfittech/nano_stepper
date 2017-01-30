@@ -137,10 +137,13 @@ void StepperCtrl::updateParamsFromNVM(void)
 		memcpy((void *)&motorParams, (void *)&NVM->motorParams, sizeof(motorParams));
 	} else
 	{
+		//MotorParams_t Params;
 		motorParams.fullStepsPerRotation=200;
 		motorParams.currentHoldMa=1500;
 		motorParams.currentMa=2200;
 		motorParams.motorWiring=true;
+		//memcpy((void *)&Params, (void *)&motorParams, sizeof(motorParams));
+		//nvmWriteMotorParms(Params);
 	}
 
 	stepperDriver.setRotationDirection(motorParams.motorWiring);
@@ -467,6 +470,9 @@ bool StepperCtrl::calibrateEncoder(void)
 
 
 	}
+	//calTable.printCalTable();
+	calTable.smoothTable();
+	//calTable.printCalTable();
 	calTable.saveToFlash(); //saves the calibration to flash
 	calTable.printCalTable();
 
@@ -492,6 +498,9 @@ stepCtrlError_t StepperCtrl::begin(void)
 	currentLocation=0;
 	numSteps=0;
 
+	//we have to update from NVM before moving motor
+	updateParamsFromNVM(); //update the local cache from the NVM
+
 	LOG("start stepper driver");
 	stepperDriver.begin();
 
@@ -504,8 +513,7 @@ stepCtrlError_t StepperCtrl::begin(void)
 	LOG("cal table init");
 	calTable.init();
 
-	//we have to update from NVM before moving motor
-	updateParamsFromNVM(); //update the local cache from the NVM
+
 
 	LOG("measuring step size");
 	x=measureStepSize();
@@ -872,7 +880,18 @@ bool StepperCtrl::vpidFeedback(void)
 	v=y-lastY;
 
 	dy=(y-lastY);
+
+	z=y;
+
+#ifdef ENABLE_PHASE_PREDICTION
 	z=y+dy; //predict where we are for phase advancement
+//	if (ABS(dy)>fullStep/2 			          //we have moved 50% of max speed
+//		&& ABS(dy)<ANGLE_FROM_DEGREES(5.0)	) //but not so fast it could be an error
+//	{
+//		z=y+dy; //predict where we are for phase advancement
+//	}
+#endif
+
 
 	lastY=y;
 
@@ -909,10 +928,10 @@ bool StepperCtrl::vpidFeedback(void)
 		//when error is positive we need to move reverse direction
 		if (u>0)
 		{
-			z=z+(fullStep+dy/2);
+			z=z+(fullStep);
 		}else
 		{
-			z=z-(fullStep+dy/2);
+			z=z-(fullStep);
 
 		}
 
@@ -952,7 +971,15 @@ bool StepperCtrl::pidFeedback(void)
 	y=getCurrentLocation();
 	dy=y-lastY;
 	lastY=y;
-	//y=y+dy;
+
+#ifdef ENABLE_PHASE_PREDICTION
+	y=y+dy; //predict that our new position
+//	if (ABS(dy)>fullStep/2 			          //we have moved 50% of max speed
+//		&& ABS(dy)<ANGLE_FROM_DEGREES(5.0)	) //but not so fast it could be an error
+//	{
+//		y=y+dy; //predict that our new position
+//	}
+#endif
 
 	if (enableFeedback) //if ((micros()-lastCall)>(updateRate/10))
 	{
@@ -1035,9 +1062,14 @@ bool StepperCtrl::simpleFeedback(void)
 	dy=y-lastY;
 	lastY=y;
 
-
-
-	//y=y+dy;
+#ifdef ENABLE_PHASE_PREDICTION
+	y=y+dy; //predict that our new position
+//	if (ABS(dy)>fullStep/2 			          //we have moved 50% of max speed
+//		&& ABS(dy)<ANGLE_FROM_DEGREES(5.0)	) //but not so fast it could be an error
+//	{
+//		y=y+dy; //predict where we are for phase advancement
+//	}
+#endif
 
 
 	//we can limit the velocity by controlling the amount we move per call to this function

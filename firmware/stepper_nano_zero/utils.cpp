@@ -1,7 +1,4 @@
 /**********************************************************************
- * sine.h
- *
- *  Created on: Dec 24, 2016
  *      Author: tstern
  *
  *	Misfit Tech invests time and resources providing this open source code,
@@ -13,19 +10,24 @@
  *	All text above, must be included in any redistribution
  *********************************************************************/
 
+#include "utils.h"
+#include "syslog.h"
 
-#ifndef SINE_H_
-#define SINE_H_
+double CubicInterpolate(
+   double y0,double y1,
+   double y2,double y3,
+   double mu)
+{
+   double a0,a1,a2,a3,mu2;
 
-#include "board.h"
+   mu2 = mu*mu;
+   a0 = y3 - y2 - y0 + y1;
+   a1 = y0 - y1 - a0;
+   a2 = y2 - y0;
+   a3 = y1;
 
-#define SINE_STEPS (1024L)
-
-#define SINE_MAX (32768L)
-
-
-int16_t sine(uint16_t angle);
-int16_t cosine(uint16_t angle);
+   return(a0*mu*mu2+a1*mu2+a2*mu+a3);
+}
 
 
-#endif /* SINE_H_ */
+

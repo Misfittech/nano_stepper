@@ -13,7 +13,7 @@
 #include "Flash.h"
 #include "nonvolatile.h"
 #include "board.h" //for divide with rounding macro
-
+#include "utils.h"
 
 
 static uint16_t getTableIndex(uint16_t value)
@@ -24,8 +24,6 @@ static uint16_t getTableIndex(uint16_t value)
 	return (uint16_t)x;
 
 }
-
-
 static uint16_t interp(Angle x1, Angle y1, Angle x2, Angle y2, Angle x)
 {
 	int32_t dx,dy,dx2,y;
@@ -40,6 +38,20 @@ static uint16_t interp(Angle x1, Angle y1, Angle x2, Angle y2, Angle x)
 	return (uint16_t)y;
 }
 
+static void printData(int32_t *data, int32_t n)
+{
+	int32_t i;
+	Serial.print("\n\r");
+	for (i=0; i<n; i++)
+	{
+		Serial.print(data[i]);
+		if (i!=(n-1))
+		{
+			Serial.print(",");
+		}
+	}
+	Serial.print("\n\r");
+}
 bool CalibrationTable::updateTableValue(int32_t index, int32_t value)
 {
 
@@ -163,6 +175,109 @@ Angle CalibrationTable::reverseLookup(Angle encoderAngle)
 
 }
 
+
+void CalibrationTable::smoothTable(void)
+{
+	uint16_t b[]={1,2,4,5,4,2,1};
+	uint16_t sum_b=19;  //sum of b filter
+
+	int32_t data[CALIBRATION_TABLE_SIZE];
+	int32_t table2[CALIBRATION_TABLE_SIZE];
+
+	int32_t i;
+	int32_t offset=0;
+	int32_t startNum;
+
+	//first lets handle the wrap around in the table
+	for (i=0; i<CALIBRATION_TABLE_SIZE; i++)
+	{
+		if (i>0 && offset==0)
+		{
+			if(((uint16_t)table[i-1].value-(uint16_t)table[i].value) <-32768)
+			{
+				offset=-65536;
+			}
+
+			if (((uint16_t)table[i-1].value-(uint16_t)table[i].value) > 32768)
+			{
+				offset=65536;
+			}
+		}
+		table2[i]=(int32_t)((uint16_t)table[i].value)+offset;
+	}
+
+	//Serial.print("after wrap\n\r");
+	//printData(table2,CALIBRATION_TABLE_SIZE);
+
+	//remove the starting offset and compensate table for index
+	startNum=table2[0];
+	for (i=0; i<CALIBRATION_TABLE_SIZE; i++)
+	{
+		table2[i]=table2[i]-startNum - (i*65536)/CALIBRATION_TABLE_SIZE;
+	}
+
+	Serial.print("after phase comp\n\r");
+	printData(table2,CALIBRATION_TABLE_SIZE);
+
+	//filter the data
+	for (i=0; i<CALIBRATION_TABLE_SIZE; i++)
+	{
+		int j,ix,ib;;
+		int32_t sum=0;
+
+		ib=0;
+		for (j=i-3; j<i+4; j++)
+		{
+			ix=j;
+			if (ix<0)
+			{
+				ix=ix+CALIBRATION_TABLE_SIZE;
+			}
+			if (ix>=CALIBRATION_TABLE_SIZE)
+			{
+				ix=ix-CALIBRATION_TABLE_SIZE;
+			}
+			if (i==0)
+			{
+				LOG("index %d",ix);
+			}
+			sum=sum+table2[ix]*b[ib];
+			ib++;
+		}
+		sum=DIVIDE_WITH_ROUND(sum,sum_b);
+		data[i]=sum;
+	}
+
+	Serial.print("after filter\n\r");
+	printData(data,CALIBRATION_TABLE_SIZE);
+
+	//add in offset and the phase compenstation
+	for (i=0; i<CALIBRATION_TABLE_SIZE; i++)
+	{
+		data[i]=data[i]+startNum + (i*65536)/CALIBRATION_TABLE_SIZE;
+	}
+
+	//Serial.print("after phase comp added\n\r");
+	//printData(data,CALIBRATION_TABLE_SIZE);
+
+	//remove the uint16_t wrap
+	for (i=0; i<CALIBRATION_TABLE_SIZE; i++)
+	{
+		if (data[i]>=65536)
+		{
+			data[i]=data[i]-65536;
+		}
+	}
+
+	//Serial.print("after wrap added\n\r");
+	//printData(data,CALIBRATION_TABLE_SIZE);
+
+	//save new table
+	for (i=0; i<CALIBRATION_TABLE_SIZE; i++)
+	{
+		table[i].value=data[i];
+	}
+}
 
 void CalibrationTable::saveToFlash(void)
 {

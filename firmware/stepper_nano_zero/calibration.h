@@ -56,6 +56,7 @@ class CalibrationTable
 
     void updateFastCal(void);
     void createFastCal(void);
+
   public:
     void init(void);
     void saveToFlash(void); //saves the calibration to flash
@@ -66,6 +67,7 @@ class CalibrationTable
     bool calValid(void);
     Angle reverseLookup(Angle encoderAngle); //this turns encoder angle into real angle
     void printCalTable(void);
+     void smoothTable(void);
 
     Angle fastReverseLookup(Angle encoderAngle);
 };

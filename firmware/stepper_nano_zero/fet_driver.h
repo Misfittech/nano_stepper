@@ -27,7 +27,10 @@
 
 #ifdef NEMA_23_10A_HW
 #define FET_DRIVER_NUM_MICROSTEPS (SINE_STEPS/4) //number of steps to use for microstepping, default is 256
+#define FET_DRIVER_NUM_ZERO_AVG (100)
 
+
+#define FET_ADC_TO_MA(x) (((x)*2537)/1000)
 //prvent someone for making a mistake with the code
 #if ((FET_DRIVER_NUM_MICROSTEPS*4) != SINE_STEPS)
 #error "SINE_STEPS must be 4x of Micro steps for the move function"
@@ -48,12 +51,38 @@
 
 class FetDriver
 {
+	static FetDriver *ptrInstance;
 private:
 	uint32_t lastStepMicros; // time in microseconds that last step happened
+
+	int32_t PWM_Table_B[512];
+	int32_t PWM_Table_A[512];
+
 	bool forwardRotation=true;
 	volatile bool enabled=true;
 
+	volatile int32_t adc;
+
+
+	volatile int32_t coilB_value=0;
+	volatile int32_t coilB_Zero=-1;
+	volatile int32_t coilB_SetPoint=301;
+
+	volatile int32_t coilA_value=0;
+	volatile int32_t coilA_Zero=-1;
+	volatile int32_t coilA_SetPoint=100;
+	void ctrl_update(uint16_t channel, uint16_t value);
+	void measureCoilB_zero(void);
+	void measureCoilA_zero(void);
+	void CalTableB(int32_t maxMA);
+	void CalTableA(int32_t maxMA);
+	void coilA_PWM(int32_t value);
+	void coilB_PWM(int32_t value);
+	int32_t getCoilB_mA(void);
+	int32_t getCoilA_mA(void);
 public:
+
+	static void ADC_Callback(uint16_t channel, uint16_t value);
 	void begin(void);
 
 	//moves motor where the modulo of A4954_NUM_MICROSTEPS is a full step.
