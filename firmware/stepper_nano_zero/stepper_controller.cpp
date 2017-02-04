@@ -709,6 +709,10 @@ int64_t StepperCtrl::getDesiredLocation(void)
 	return ret;
 }
 
+int64_t StepperCtrl::getDesiredSteps(void)//modOE
+{
+	return (int64_t)numSteps;
+}
 #define N_SAMPLES2 (500)
 int32_t StepperCtrl::measureMeanEncoder(void)
 {

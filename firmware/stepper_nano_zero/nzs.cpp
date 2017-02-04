@@ -463,6 +463,9 @@ void NZS::begin(void)
 	validateAndInitNVMParams();
 
 
+#ifndef DISABLE_USBstream //mod OE
+	USB_stream.setup(&stepperCtrl);
+#endif
 	Lcd.begin(&stepperCtrl);
 	Lcd.lcdShow("Misfit"," Tech", VERSION);
 
@@ -557,6 +560,11 @@ void NZS::loop(void)
 
 	Lcd.process();
 
+#ifndef DISABLE_USBstream //mod OE
+	if(USB_stream.on&&SerialUSB){
+		USB_stream.process();
+	}
+#endif
 
 	return;
 }

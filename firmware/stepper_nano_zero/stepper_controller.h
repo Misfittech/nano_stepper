@@ -99,13 +99,15 @@ class StepperCtrl
 		bool pidFeedback(void);
 		bool simpleFeedback(void);
 		bool vpidFeedback(void);
-		int64_t getCurrentLocation(void);
-		int64_t getDesiredLocation(void);
+
 
 	public:
 		void setVelocity(int64_t vel); //set velocity for vPID mode
 		int64_t getVelocity(void);
 		int32_t getLoopError(void) {return loopError;}; //assume atomic read
+		int64_t getCurrentLocation(void);
+		int64_t getDesiredLocation(void);
+		int64_t getDesiredSteps(void);
 
 		bool calibrationValid(void) { return calTable.calValid();}  //returns true if calbiration is good
 

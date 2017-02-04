@@ -53,8 +53,13 @@ CMD_STR(move, "moves encoder to absolute angle in degrees 'move 400.1'");
 //CMD_STR(printdata, "prints last n error terms");
 CMD_STR(velocity, "gets/set velocity in RPMs");
 CMD_STR(factoryreset, "resets board to factory defaults");
-CMD_STR(stop, "stops the motion planner");
+CMD_STR(stopplaner, "stops the motion planner");;//mod OE
 CMD_STR(setzero, "set the reference angle to zero");
+CMD_STR(errorpin, "set error pin function: 0 enable on high input, 1 enable on low input, 2 high on error output, 3 bidir");//mod OE
+CMD_STR(usbstream, "streams time, error and angle data through USB");//mod OE
+CMD_STR(stop, "stop USB data stream");//mod OE
+CMD_STR(reboot, "reboots NZS");//mod OE
+
 
 //List of supported commands
 sCommand Cmds[] =
@@ -88,11 +93,60 @@ sCommand Cmds[] =
 		//COMMAND(printdata),
 		COMMAND(velocity),
 		COMMAND(factoryreset),
-		COMMAND(stop),
+		COMMAND(stopplaner),//mod OE
 		COMMAND(setzero),
+		COMMAND(errorpin),//mod OE
+		COMMAND(usbstream),//mod OE
+		COMMAND(stop),//mod OE
+		COMMAND(reboot),//mod OE
 
 		{"",0,""}, //End of list signal
 };
+
+static int errorpin_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	int i;
+	if (argc==1)
+	{
+		i=atol(argv[0]);
+		SystemParams_t params;
+		memcpy((void *)&params, (void *)&NVM->SystemParams, sizeof(params));
+		if (i!=params.errorPinMode)
+		{
+			params.errorPinMode=(ErrorPinMode_t)i;
+			nvmWriteSystemParms(params);
+		}
+		CommandPrintf(ptrUart,"errorPinMode %u\n\r",i);
+		return 0;
+	}
+	i = NVM->SystemParams.errorPinMode;
+	CommandPrintf(ptrUart,"errorPinMode %u\n\r",i);
+	CommandPrintf(ptrUart,"'0: ERROR_PIN_MODE_ENABLE'\n\r");
+	CommandPrintf(ptrUart,"'1: ERROR_PIN_MODE_ACTIVE_LOW_ENABLE'\n\r");
+	CommandPrintf(ptrUart,"'2: ERROR_PIN_MODE_ERROR'\n\r");
+	CommandPrintf(ptrUart,"'3: ERROR_PIN_MODE_BIDIR'\n\r");
+	return 1;
+}
+
+static int reboot_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+  NVIC_SystemReset();
+  return 0;
+}
+
+static int stop_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+  //CommandPrintf(ptrUart,"Streaming control data stopped");
+  USB_stream.on = false;
+  return 0;
+}
+static int usbstream_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+  CommandPrintf(ptrUart,"Begin streaming control data");
+  USB_stream.on = true;
+  USB_stream.begin();
+  return 0;
+}
 
 static int setzero_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
@@ -101,7 +155,7 @@ static int setzero_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 }
 
 
-static int stop_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+static int stopplaner_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	SmartPlanner.stop();
 	return 0;

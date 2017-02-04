@@ -433,25 +433,31 @@ void NZS_LCD::updateLCD(void)
 	static int highRPM=0;
 	int32_t y,z,err;
 
-	int64_t lastAngle,deg;
+	static int64_t lastAngle,deg;
 	static int32_t RPM=0;
-	int32_t lasttime=0;
+	static int32_t lasttime=0;
 
 	bool state;
 	static int32_t dt=40;
 	static uint32_t t0=0;
+	static bool done = false;
 
+	if ((millis()-t0)>500-dt&&!done)
+	{
+		done = true;
+		////LOG("loop time is %dus",ptrStepperCtrl->getLoopTime());
+
+		lastAngle=ptrStepperCtrl->getCurrentAngle();
+		lasttime=millis();
+	}
 	if ((millis()-t0)>500)
 	{
+		done = false;
 		t0=millis();
 		int64_t x,d;
 
 		LOG("loop time is %dus",ptrStepperCtrl->getLoopTime());
 
-
-		lastAngle=ptrStepperCtrl->getCurrentAngle();
-		lasttime=millis();
-		delay(dt);
 		deg=ptrStepperCtrl->getCurrentAngle();
 		y=millis()-lasttime;
 		err=ptrStepperCtrl->getLoopError();

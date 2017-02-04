@@ -27,7 +27,7 @@
 
 #define NZS_AS5047_PIPELINE //does a pipeline read of encoder, which is slightly faster
 
-#define NZS_CONTROL_LOOP_HZ (6000) //update rate of control loop
+#define NZS_CONTROL_LOOP_HZ (4000) //update rate of control loop
 
 
 #define NZS_LCD_ABSOULTE_ANGLE  //define this to show angle from zero in positive and negative direction
