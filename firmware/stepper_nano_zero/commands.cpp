@@ -39,6 +39,8 @@ CMD_STR(ppid, "with no arguments prints POSITIONAL PID parameters, with argument
 //CMD_STR(testringing ,"Steps motor at various currents and measures encoder");
 //CMD_STR(microsteperror ,"test error on microstepping")
 CMD_STR(dirpin, "with no arguments read dirpin setting, with argument sets direction pin rotation");
+CMD_STR(errorpinmode,"gets/sets the functionality of the error/enable pin");
+
 CMD_STR(errorlimit, "gets/set the error limit which will assert error pin (when error pin is set for error output)");
 CMD_STR(ctrlmode, "gets/set the feedback controller mode of operation");
 CMD_STR(maxcurrent, "gets/set the maximum motor current allowed in milliAmps");
@@ -74,6 +76,7 @@ sCommand Cmds[] =
 		//COMMAND(testringing),
 		//COMMAND(microsteperror),
 		COMMAND(dirpin),
+		COMMAND(errorpinmode),
 		COMMAND(errorlimit),
 		COMMAND(ctrlmode),
 		COMMAND(maxcurrent),
@@ -422,6 +425,70 @@ static int dirpin_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 		}
 	}
 	CommandPrintf(ptrUart, "used 'dirpin 0' for CW rotation and 'dirpin 1' for CCW");
+
+
+	return 1;
+}
+
+
+static int errorpinmode_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	bool ret;
+
+	if (argc == 0)
+	{
+		if (ERROR_PIN_MODE_ENABLE == NVM->SystemParams.errorPinMode)
+		{
+			CommandPrintf(ptrUart,"Error pin -  Enable Active High(%d)\n\r",(uint32_t)NVM->SystemParams.errorPinMode);
+		}else if (ERROR_PIN_MODE_ACTIVE_LOW_ENABLE == NVM->SystemParams.errorPinMode)
+		{
+			CommandPrintf(ptrUart,"Error pin -  Enable active low(%d)\n\r",(uint32_t)NVM->SystemParams.errorPinMode);
+		}else if (ERROR_PIN_MODE_ERROR == NVM->SystemParams.errorPinMode)
+		{
+			CommandPrintf(ptrUart,"Error pin -  Error pin(%d)\n\r",(uint32_t)NVM->SystemParams.errorPinMode);
+		} else if (ERROR_PIN_MODE_BIDIR == NVM->SystemParams.errorPinMode)
+		{
+			CommandPrintf(ptrUart,"Error pin -  Bidi error(%d)\n\r",(uint32_t)NVM->SystemParams.errorPinMode);
+		}
+
+		return 0;
+	}
+
+	if (argc == 1)
+	{
+		uint32_t x;
+
+		x=abs(atol(argv[0]));
+		if (x<=3)
+		{
+
+			SystemParams_t systemParams;
+
+			memcpy(&systemParams,&NVM->SystemParams, sizeof(systemParams) );
+
+			systemParams.errorPinMode=(ErrorPinMode_t)x;
+
+			nvmWriteSystemParms(systemParams);
+			stepperCtrl.updateParamsFromNVM();
+
+			if (ERROR_PIN_MODE_ENABLE == NVM->SystemParams.errorPinMode)
+			{
+				CommandPrintf(ptrUart,"Error pin -  Enable Active High(%d)\n\r",(uint32_t)NVM->SystemParams.errorPinMode);
+			}else if (ERROR_PIN_MODE_ACTIVE_LOW_ENABLE == NVM->SystemParams.errorPinMode)
+			{
+				CommandPrintf(ptrUart,"Error pin -  Enable active low(%d)\n\r",(uint32_t)NVM->SystemParams.errorPinMode);
+			}else if (ERROR_PIN_MODE_ERROR == NVM->SystemParams.errorPinMode)
+			{
+				CommandPrintf(ptrUart,"Error pin -  Error pin(%d)\n\r",(uint32_t)NVM->SystemParams.errorPinMode);
+			} else if (ERROR_PIN_MODE_BIDIR == NVM->SystemParams.errorPinMode)
+			{
+				CommandPrintf(ptrUart,"Error pin -  Bidi error(%d)\n\r",(uint32_t)NVM->SystemParams.errorPinMode);
+			}
+			return 0;
+
+		}
+	}
+	CommandPrintf(ptrUart, "use 'errorpinmode 0' for enable active high, 'errorpinmode 1' for enable active low  and 'errorpinmode 2' for error output"  );
 
 
 	return 1;

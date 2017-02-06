@@ -1,26 +1,23 @@
-/**********************************************************************
+/*
+ * A5995.h
+ *
+ *  Created on: Feb 2, 2017
  *      Author: tstern
- *
- *	Misfit Tech invests time and resources providing this open source code,
- *	please support Misfit Tech and open-source hardware by purchasing
- *	products from Misfit Tech, www.misifittech.net!
- *
- *	Written by Trampas Stern  for Misfit Tech.
- *	BSD license, check license.txt for more information
- *	All text above, must be included in any redistribution
- *********************************************************************/
-#ifndef __A4954__H__
-#define __A4954__H__
+ */
+
+#ifndef A5995_H_
+#define A5995_H_
+
 #include <Arduino.h>
 #include "board.h"
 #include "angle.h"
 #include "sine.h"
 
-#define A4954_NUM_MICROSTEPS (256)
-#define A4954_MIN_TIME_BETWEEN_STEPS_MICROS  (1000)
+#define A5995_NUM_MICROSTEPS (256)
+
 
 //prevent someone for making a mistake with the code
-#if ((A4954_NUM_MICROSTEPS*4) != SINE_STEPS)
+#if ((A5995_NUM_MICROSTEPS*4) != SINE_STEPS)
 #error "SINE_STEPS must be 4x of Micro steps for the move function"
 #endif
 
@@ -39,7 +36,7 @@
  *
  */
 
-class A4954
+class A5995
 {
 private:
 	uint32_t lastStepMicros; // time in microseconds that last step happened
@@ -56,9 +53,9 @@ public:
 	void setRotationDirection(bool forward) {forwardRotation=forward;};
 
 	void enable(bool enable);
-	void limitCurrent(uint8_t percent); //higher more current
+	void limitCurrent(uint8_t percent) {return;};  //Not used
 };
 
 
 
-#endif //__A4954__H__
+#endif /* A5995_H_ */

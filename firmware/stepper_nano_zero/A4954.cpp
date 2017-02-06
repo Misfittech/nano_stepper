@@ -141,7 +141,7 @@ static void enableTCC0(uint8_t percent)
 	syncTCC(TCCx);
 
 	// Set PER to maximum counter value (resolution : 0xFF)
-	TCCx->PER.reg = 480;
+	TCCx->PER.reg = DAC_MAX;
 	syncTCC(TCCx);
 
 	// Enable TCCx
@@ -157,7 +157,6 @@ static void setDAC(uint32_t DAC1, uint32_t DAC2)
 	syncTCC(TCC1);
 	TCC1->CC[0].reg = (uint32_t)DAC2; //D4 - VREF34
 	syncTCC(TCC1);
-
 
 
 }
@@ -226,6 +225,25 @@ void A4954::begin()
 	enableTCC0(90);
 	setupDAC();
 //
+//	int i=0;
+//	bridge1(0);
+//	bridge2(0);
+//while (1)
+//	{
+//		int32_t x;
+//		WARNING("MA %d",i);
+//		x=(int32_t)((int64_t)i*(DAC_MAX))/3300;
+//		setDAC(x,x);
+//		delay(1000);
+//		i=i+10;
+//		if (i>1000)
+//		{
+//			i=0;
+//		}
+//
+//	}
+
+//
 //	WARNING("Setting DAC for 500mA output");
 //	setDAC((int32_t)((int64_t)1000*(DAC_MAX))/3300,(int32_t)((int64_t)1000*(DAC_MAX))/3300);
 //	bridge1(0);
@@ -290,7 +308,7 @@ int32_t A4954::move(int32_t stepAngle, uint32_t mA)
 	uint16_t angle;
 	int32_t cos,sin;
 	int32_t dacSin,dacCos;
-
+	//static int i=0;
 
 	if (enabled == false)
 	{
@@ -303,19 +321,11 @@ int32_t A4954::move(int32_t stepAngle, uint32_t mA)
 	//WARNING("move %d %d",stepAngle,mA);
 	//handle roll overs, could do with modulo operator
 	stepAngle=stepAngle%SINE_STEPS;
-//	while (stepAngle<0)
-//	{
-//		stepAngle=stepAngle+SINE_STEPS;
-//	}
-//	while (stepAngle>=SINE_STEPS)
-//	{
-//		stepAngle=stepAngle-SINE_STEPS;
-//	}
 
 	//figure out our sine Angle
 	// note our SINE_STEPS is 4x of microsteps for a reason
 	//angle=(stepAngle+(SINE_STEPS/8)) % SINE_STEPS;
-	angle=(stepAngle) % SINE_STEPS;
+	angle=(stepAngle);
 
 	//calculate the sine and cosine of our angle
 	sin=sine(angle);
@@ -328,18 +338,22 @@ int32_t A4954::move(int32_t stepAngle, uint32_t mA)
 	}
 
 	//scale sine result by current(mA)
-	dacSin=((int32_t)mA*(int32_t)abs(sin))/SINE_MAX;
-
-	//convert value into DAC scaled to 3300mA max
-	dacSin=(int32_t)((int64_t)dacSin*(DAC_MAX))/3300;
+	dacSin=((int32_t)mA*(int64_t)abs(sin))/SINE_MAX;
 
 	//scale cosine result by current(mA)
-	dacCos=((int32_t)mA*(int32_t)abs(cos))/SINE_MAX;
+	dacCos=((int32_t)mA*(int64_t)abs(cos))/SINE_MAX;
+
+//	if (i==0)
+//	{
+//		WARNING("dacs are %d %d",dacSin,dacCos);
+//	}
 
 	//convert value into DAC scaled to 3300mA max
 	dacCos=(int32_t)((int64_t)dacCos*(DAC_MAX))/3300;
+		//convert value into DAC scaled to 3300mA max
+	dacSin=(int32_t)((int64_t)dacSin*(DAC_MAX))/3300;
 
-	//WARNING("dacs are %d %d %d",dacSin,dacCos,stepLoc);
+	//	WARNING("dacs are %d %d %d",dacSin,dacCos);
 
 	setDAC(dacSin,dacCos);
 
@@ -357,6 +371,11 @@ int32_t A4954::move(int32_t stepAngle, uint32_t mA)
 	{
 		bridge2(0);
 	}
+
+//	if (i++>3000)
+//	{
+//		i=0;
+//	}
 	//	YELLOW_LED(led);
 	//	led=(led+1) & 0x01;
 	lastStepMicros=micros();

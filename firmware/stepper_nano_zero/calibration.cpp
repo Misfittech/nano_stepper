@@ -216,8 +216,8 @@ void CalibrationTable::smoothTable(void)
 		table2[i]=table2[i]-startNum - (i*65536)/CALIBRATION_TABLE_SIZE;
 	}
 
-	Serial.print("after phase comp\n\r");
-	printData(table2,CALIBRATION_TABLE_SIZE);
+	//Serial.print("after phase comp\n\r");
+	//printData(table2,CALIBRATION_TABLE_SIZE);
 
 	//filter the data
 	for (i=0; i<CALIBRATION_TABLE_SIZE; i++)
@@ -248,8 +248,8 @@ void CalibrationTable::smoothTable(void)
 		data[i]=sum;
 	}
 
-	Serial.print("after filter\n\r");
-	printData(data,CALIBRATION_TABLE_SIZE);
+	//Serial.print("after filter\n\r");
+	//printData(data,CALIBRATION_TABLE_SIZE);
 
 	//add in offset and the phase compenstation
 	for (i=0; i<CALIBRATION_TABLE_SIZE; i++)

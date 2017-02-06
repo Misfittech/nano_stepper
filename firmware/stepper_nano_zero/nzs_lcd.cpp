@@ -441,107 +441,114 @@ void NZS_LCD::updateLCD(void)
 	static int32_t dt=40;
 	static uint32_t t0=0;
 
+	static bool rpmDone=false;
+
 	if ((millis()-t0)>500)
 	{
-		t0=millis();
+
 		int64_t x,d;
 
-		LOG("loop time is %dus",ptrStepperCtrl->getLoopTime());
-
-
-		lastAngle=ptrStepperCtrl->getCurrentAngle();
-		lasttime=millis();
-		delay(dt);
-		deg=ptrStepperCtrl->getCurrentAngle();
-		y=millis()-lasttime;
-		err=ptrStepperCtrl->getLoopError();
-
-
-		d=(int64_t)(lastAngle-deg);
-
-		d=abs(d);
-//		if (d>ANGLE_STEPS/2)
-//		{
-//			d=d-ANGLE_STEPS/2;
-//		}
-
-		x=((int64_t)d*(60*1000UL))/((int64_t)y * ANGLE_STEPS);
-
-		lastAngle=deg;
-		RPM=x; //(7*RPM+x)/8; //average RPMs
-		if (RPM>500)
+		//do first half of RPM measurement
+		if (!rpmDone)
 		{
-			dt=10;
-		}
-		if (RPM<100)
-		{
-			dt=100;
-		}
-		str[0][0]='\0';
-		//LOG("RPMs is %d, %d",x,d);
-		switch(ptrStepperCtrl->getControlMode())
-		{
-			case CTRL_SIMPLE:
-				sprintf(str[0], "%dRPM simp",RPM);
-				break;
-
-			case CTRL_POS_PID:
-				sprintf(str[0], "%dRPM pPID",RPM);
-				break;
-
-			case CTRL_POS_VELOCITY_PID:
-				sprintf(str[0], "%dRPM vPID",RPM);
-				break;
-
-			case CTRL_OPEN:
-				sprintf(str[0], "%dRPM open",RPM);
-				break;
-			case CTRL_OFF:
-				sprintf(str[0], "%dRPM off",RPM);
-				break;
-			default:
-				sprintf(str[0], "error %u",ptrStepperCtrl->getControlMode());
-				break;
-
+			LOG("loop time is %dus",ptrStepperCtrl->getLoopTime());
+			lastAngle=ptrStepperCtrl->getCurrentAngle();
+			lasttime=millis();
+			rpmDone=true;
+			return;
 		}
 
+		//do the second half of rpm measurement and update LCD.
+		if ((millis()-t0)>(500+dt))
+		{
+			rpmDone=false;
+			deg=ptrStepperCtrl->getCurrentAngle();
+			y=millis()-lasttime;
+			err=ptrStepperCtrl->getLoopError();
 
-		err=(err*360*100)/(int32_t)ANGLE_STEPS;
-		//LOG("error is %d %d %d",err,(int32_t)ptrStepperCtrl->getCurrentLocation(),(int32_t)ptrStepperCtrl->getDesiredLocation());
-		z=(err)/100;
-		y=abs(err-(z*100));
+			t0=millis();
+			d=(int64_t)(lastAngle-deg);
 
-		sprintf(str[1],"%01d.%02d err", z,y);
+			d=abs(d);
+
+			x=((int64_t)d*(60*1000UL))/((int64_t)y * ANGLE_STEPS);
+
+			lastAngle=deg;
+			RPM=x; //(7*RPM+x)/8; //average RPMs
+			if (RPM>500)
+			{
+				dt=10;
+			}
+			if (RPM<100)
+			{
+				dt=100;
+			}
+			str[0][0]='\0';
+			//LOG("RPMs is %d, %d",x,d);
+			switch(ptrStepperCtrl->getControlMode())
+			{
+				case CTRL_SIMPLE:
+					sprintf(str[0], "%dRPM simp",RPM);
+					break;
+
+				case CTRL_POS_PID:
+					sprintf(str[0], "%dRPM pPID",RPM);
+					break;
+
+				case CTRL_POS_VELOCITY_PID:
+					sprintf(str[0], "%dRPM vPID",RPM);
+					break;
+
+				case CTRL_OPEN:
+					sprintf(str[0], "%dRPM open",RPM);
+					break;
+				case CTRL_OFF:
+					sprintf(str[0], "%dRPM off",RPM);
+					break;
+				default:
+					sprintf(str[0], "error %u",ptrStepperCtrl->getControlMode());
+					break;
+
+			}
 
 
-		deg=ptrStepperCtrl->getDesiredAngle();
+			err=(err*360*100)/(int32_t)ANGLE_STEPS;
+			//LOG("error is %d %d %d",err,(int32_t)ptrStepperCtrl->getCurrentLocation(),(int32_t)ptrStepperCtrl->getDesiredLocation());
+			z=(err)/100;
+			y=abs(err-(z*100));
+
+			sprintf(str[1],"%01d.%02d err", z,y);
+
+
+			deg=ptrStepperCtrl->getDesiredAngle();
 
 #ifndef NZS_LCD_ABSOULTE_ANGLE
-		deg=deg & ANGLE_MAX; //limit to 360 degrees
+			deg=deg & ANGLE_MAX; //limit to 360 degrees
 #endif
 
-		deg=(deg*360*10)/(int32_t)ANGLE_STEPS;
-		int K=0;
-		if (abs(deg)>9999)
-		{
-			K=1;
-			deg=deg/1000;
-		}
+			deg=(deg*360*10)/(int32_t)ANGLE_STEPS;
+			int K=0;
+			if (abs(deg)>9999)
+			{
+				K=1;
+				deg=deg/1000;
+			}
 
-		x=(deg)/10;
-		y=abs(deg-(x*10));
+			x=(deg)/10;
+			y=abs(deg-(x*10));
 
-		if (K==1)
-		{
-			sprintf(str[2],"%03d.%01uKdeg", x,y);
-		}else
-		{
-			sprintf(str[2],"%03d.%01udeg", x,y);
+			if (K==1)
+			{
+				sprintf(str[2],"%03d.%01uKdeg", x,y);
+			}else
+			{
+				sprintf(str[2],"%03d.%01udeg", x,y);
+			}
+			str[0][10]='\0';
+			str[1][10]='\0';
+			str[2][10]='\0';
+			lcdShow(str[0],str[1],str[2]);
 		}
-		str[0][10]='\0';
-		str[1][10]='\0';
-		str[2][10]='\0';
-		lcdShow(str[0],str[1],str[2]);
 	}
 }
 

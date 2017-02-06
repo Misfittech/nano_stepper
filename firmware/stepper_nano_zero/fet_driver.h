@@ -31,6 +31,7 @@
 
 
 #define FET_ADC_TO_MA(x) (((x)*2537)/1000)
+#define FET_MA_TO_ADC(x) (((x)*1000)/2537)
 //prvent someone for making a mistake with the code
 #if ((FET_DRIVER_NUM_MICROSTEPS*4) != SINE_STEPS)
 #error "SINE_STEPS must be 4x of Micro steps for the move function"
@@ -66,11 +67,13 @@ private:
 
 	volatile int32_t coilB_value=0;
 	volatile int32_t coilB_Zero=-1;
-	volatile int32_t coilB_SetPoint=301;
+	volatile int32_t coilB_SetPoint=100;
+	volatile int32_t coilB_error=0;
 
 	volatile int32_t coilA_value=0;
 	volatile int32_t coilA_Zero=-1;
-	volatile int32_t coilA_SetPoint=100;
+	volatile int32_t coilA_SetPoint=200;
+	volatile int32_t coilA_error=0;
 	void ctrl_update(uint16_t channel, uint16_t value);
 	void measureCoilB_zero(void);
 	void measureCoilA_zero(void);

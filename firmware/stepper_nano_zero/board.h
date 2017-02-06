@@ -20,6 +20,8 @@
 //uncomment the follow lines if using the NEMA 23 10A hardware
 //#define NEMA_23_10A_HW
 
+//uncomment the following if the board uses the A5995 driver
+//#define A5995_DRIVER
 
 #define NZS_FAST_CAL // define this to use 32k of flash for fast calibration table
 #define NZS_FAST_SINE //uses 2048 extra bytes to implement faster sine tables
@@ -36,7 +38,7 @@
 #define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
 								//as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.11" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.12" //this is what prints on LCD during splash screen
 
 #define SERIAL_BAUD (115200) //baud rate for the serial ports
 
@@ -82,7 +84,11 @@
  *	    - Changed calibration to be done with one coil/phase on
  *	    - Added smoothing for calibration
  *	    - Continue to work on the Fet Driver code.
- *
+ *	0.12
+ *		- Continue to work on the FET driver code
+ *		- fixed a constant issue with the DAC for the A4954 driver
+ *		- added command for setting the operational mode of the enable pin
+ *		- added the start of the A5995 driver.
  */
 
 
@@ -143,7 +149,7 @@ typedef enum {
 
 #ifdef MECHADUINO_HARDWARE
 #define PIN_ERROR 		(19)  //analogInputToDigitalPin(PIN_A5))
-#else
+#else //not Mechaduino hardwer
 #define PIN_ERROR		(10)
 #endif
 
@@ -155,10 +161,10 @@ typedef enum {
 //these pins use the TIMER in the A4954 driver
 // changing the pin definitions here may require changes in the A4954.cpp file
 
-#define PIN_FET_IN1		(5)
-#define PIN_FET_IN2		(6)
-#define PIN_FET_IN3		(7)
-#define PIN_FET_IN4		(2)
+#define PIN_FET_IN1		(5) //PA15 TC3/WO[1] TCC0/WO[5]1
+#define PIN_FET_IN2		(6) //PA20 TC7/W0[0] TCC0/WO[6]2
+#define PIN_FET_IN3		(7) //PA21 TC7/WO[1] TCC0/WO[7]3
+#define PIN_FET_IN4		(2) //PA14 TC3/W0[0] TCC0/WO[4] 0
 #define PIN_FET_VREF1	(4)
 #define PIN_FET_VREF2	(3)
 #define PIN_FET_ENABLE		(12)
@@ -170,7 +176,16 @@ typedef enum {
 //#define COMP_FET_B		 (9)
 
 
-
+//these are the pins used on the A5995 driver
+#define PIN_A5995_ENABLE1 	(2) //PA14
+#define PIN_A5995_ENABLE2 	(18) //PA05  analogInputToDigitalPin(PIN_A4))
+#define PIN_A5995_MODE1 	(8) //PA06 TCC1 WO[0]
+#define PIN_A5995_MODE2 	(7)	//PA21 TCC0 WO[4] //3
+#define PIN_A5995_PHASE1 	(6)	//PA20 TCC0 WO[6] //2
+#define PIN_A5995_PHASE2 	(5) //PA15 TCC0 W0[5] //1
+#define PIN_A5995_VREF1		(4)
+#define PIN_A5995_VREF2		(9)
+#define PIN_A5995_SLEEPn	(25) //RXLED
 
 #ifndef MECHADUINO_HARDWARE
 #define PIN_YELLOW_LED  (8)
@@ -209,10 +224,11 @@ typedef enum {
 #define GPIO_HIGH(pin) {PORT->Group[g_APinDescription[(pin)].ulPort].OUTSET.reg = (1ul << g_APinDescription[(pin)].ulPin);}
 #define GPIO_OUTPUT(pin) {PORT->Group[g_APinDescription[(pin)].ulPort].PINCFG[g_APinDescription[(pin)].ulPin].reg &=~(uint8_t)(PORT_PINCFG_INEN) ;  PORT->Group[g_APinDescription[(pin)].ulPort].DIRSET.reg = (uint32_t)(1<<g_APinDescription[(pin)].ulPin) ;}
 
-#define GPIO_GPIO_OUTPUT(pin) {PORT->Group[g_APinDescription[(pin)].ulPort].PINCFG[g_APinDescription[(pin)].ulPin].reg &=~(uint8_t)(PORT_PINCFG_INEN | PORT_PINCFG_PMUXEN) ;  PORT->Group[g_APinDescription[(pin)].ulPort].DIRSET.reg = (uint32_t)(1<<g_APinDescription[(pin)].ulPin) ;}
+#define PIN_GPIO_OUTPUT(pin) {PORT->Group[g_APinDescription[(pin)].ulPort].PINCFG[g_APinDescription[(pin)].ulPin].reg &=~(uint8_t)(PORT_PINCFG_INEN | PORT_PINCFG_PMUXEN) ;  PORT->Group[g_APinDescription[(pin)].ulPort].DIRSET.reg = (uint32_t)(1<<g_APinDescription[(pin)].ulPin) ;}
 
+#define PIN_GPIO(pin) {PORT->Group[g_APinDescription[(pin)].ulPort].PINCFG[g_APinDescription[(pin)].ulPin].reg &=~(uint8_t)(PORT_PINCFG_INEN | PORT_PINCFG_PMUXEN);}
 #define GPIO_READ(ulPin) {(PORT->Group[g_APinDescription[ulPin].ulPort].IN.reg & (1ul << g_APinDescription[ulPin].ulPin)) != 0}
-
+#define PIN_PERIPH(pin) {PORT->Group[g_APinDescription[(pin)].ulPort].PINCFG[g_APinDescription[(pin)].ulPin].reg |= PORT_PINCFG_PMUXEN;}
 //sets up the pins for the board
 static void boardSetupPins(void)
 {

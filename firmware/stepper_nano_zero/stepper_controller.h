@@ -17,6 +17,7 @@
 #include "as5047d.h"
 #include "calibration.h"
 #include "A4954.h"
+#include "A5995.h"
 #include "nonvolatile.h"
 #include "fet_driver.h" //for the NEMA23 10A
 
@@ -49,7 +50,11 @@ class StepperCtrl
 #ifdef NEMA_23_10A_HW
 		FetDriver stepperDriver;
 #else
+#ifdef A5995_DRIVER
+		A5995 stepperDriver;
+#else
 		A4954 stepperDriver;
+#endif
 #endif
 		volatile MotorParams_t motorParams;
 		volatile SystemParams_t systemParams;
