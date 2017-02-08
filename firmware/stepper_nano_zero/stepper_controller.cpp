@@ -139,8 +139,8 @@ void StepperCtrl::updateParamsFromNVM(void)
 	{
 		//MotorParams_t Params;
 		motorParams.fullStepsPerRotation=200;
-		motorParams.currentHoldMa=1500;
-		motorParams.currentMa=2200;
+		motorParams.currentHoldMa=500;
+		motorParams.currentMa=1000;
 		motorParams.motorWiring=true;
 		//memcpy((void *)&Params, (void *)&motorParams, sizeof(motorParams));
 		//nvmWriteMotorParms(Params);
@@ -454,12 +454,12 @@ bool StepperCtrl::calibrateEncoder(void)
 		updateStep(0,1);
 		steps=steps+A4954_NUM_MICROSTEPS;
 		//LOG("move %d %d",steps,motorParams.currentMa );
-		stepperDriver.move(steps,motorParams.currentMa);
+		stepperDriver.move(steps,motorParams.currentMa/2);
 		if (400==motorParams.fullStepsPerRotation)
 		{
 			updateStep(0,1);
 			steps=steps+A4954_NUM_MICROSTEPS;
-			stepperDriver.move(steps,motorParams.currentMa);
+			stepperDriver.move(steps,motorParams.currentMa/2);
 		}
 
 		j++;
@@ -791,10 +791,13 @@ void StepperCtrl::moveToAbsAngle(int32_t a)
 	int64_t ret;
 	int32_t n;
 
+
 	n=motorParams.fullStepsPerRotation * systemParams.microsteps;
 
 	ret=(((int64_t)a+zeroAngleOffset)*n)/(int32_t)ANGLE_STEPS;
+	bool state=enterCriticalSection();
 	numSteps=ret;
+	exitCriticalSection(state);
 }
 
 void StepperCtrl::moveToAngle(int32_t a, uint32_t ma)

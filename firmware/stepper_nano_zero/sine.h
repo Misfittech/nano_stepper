@@ -21,7 +21,7 @@
 
 #define SINE_STEPS (1024L)
 
-#define SINE_MAX (32768L)
+#define SINE_MAX ((int32_t)(32768L))
 
 
 int16_t sine(uint16_t angle);

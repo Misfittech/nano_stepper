@@ -399,7 +399,7 @@ void validateAndInitNVMParams(void)
 
 	if (false == NVM->sPID.parametersVaild)
 	{
-		nvmWrite_sPID(1.0,0.001, 0.01);
+		nvmWrite_sPID(0.9,0.0001, 0.01);
 	}
 
 	if (false == NVM->pPID.parametersVaild)
