@@ -181,7 +181,7 @@ int32_t A5995::move(int32_t stepAngle, uint32_t mA)
 	int32_t cos,sin;
 	int32_t dacSin,dacCos;
 	static int32_t lastSin=0,lastCos=0;
-	static int i=0;
+	static int i=1;
 
 	if (enabled == false)
 	{
@@ -268,6 +268,12 @@ if (i==0)
 	GPIO_LOW(PIN_A5995_MODE1);
 	GPIO_LOW(PIN_A5995_MODE2);
 
+
+if (i==0)
+{
+	WARNING("sins are %d %d",sin,cos);
+}
+
 	if (sin>0)
 	{
 		GPIO_HIGH(PIN_A5995_PHASE2);
@@ -286,8 +292,8 @@ if (i==0)
 
 	}
 
-	i++;
-	if (i>3000) i=0;
+//	i++;
+//	if (i>3000) i=0;
 	//	YELLOW_LED(led);
 	//	led=(led+1) & 0x01;
 	lastStepMicros=micros();

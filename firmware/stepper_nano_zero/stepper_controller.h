@@ -89,14 +89,14 @@ class StepperCtrl
 
 		//updates the currentMeasuredAngle with our best guess where we are
 		Angle sampleAngle(void);
-		Angle sampleMeanEncoder(uint32_t numSamples);
+		Angle sampleMeanEncoder(int32_t numSamples);
 
 		float measureStepSize(void); //steps motor and estimates step size
 		uint32_t measureMaxCalibrationError(void);
 		void setLocationFromEncoder(void);
 
 
-		int32_t measureMeanEncoder(void);
+		//int32_t measureMeanEncoder(void);
 		void  motorReset(void);
 		void updateStep(int dir, uint16_t steps);
 

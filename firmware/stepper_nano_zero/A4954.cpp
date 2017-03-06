@@ -324,7 +324,7 @@ int32_t A4954::move(int32_t stepAngle, uint32_t mA)
 
 	//figure out our sine Angle
 	// note our SINE_STEPS is 4x of microsteps for a reason
-	//angle=(stepAngle+(SINE_STEPS/8)) % SINE_STEPS;
+	angle=(stepAngle+(SINE_STEPS/8)) % SINE_STEPS;
 	angle=(stepAngle);
 
 	//calculate the sine and cosine of our angle
@@ -353,7 +353,7 @@ int32_t A4954::move(int32_t stepAngle, uint32_t mA)
 		//convert value into DAC scaled to 3300mA max
 	dacSin=(int32_t)((int64_t)dacSin*(DAC_MAX))/3300;
 
-	//	WARNING("dacs are %d %d %d",dacSin,dacCos);
+	//WARNING("dacs are %d %d ",dacSin,dacCos);
 
 	setDAC(dacSin,dacCos);
 

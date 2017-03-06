@@ -38,7 +38,7 @@
 #define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
 								//as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.12" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.13" //this is what prints on LCD during splash screen
 
 #define SERIAL_BAUD (115200) //baud rate for the serial ports
 
@@ -89,6 +89,9 @@
  *		- fixed a constant issue with the DAC for the A4954 driver
  *		- added command for setting the operational mode of the enable pin
  *		- added the start of the A5995 driver.
+ *	0.13
+ *		- Added delay in for the 0.9 degree motor calibration and testing
+ *		- changed calibration to move 1/2 step at time as it was causing problems on A5995 due to current ramp down
  */
 
 
@@ -183,8 +186,8 @@ typedef enum {
 #define PIN_A5995_MODE2 	(7)	//PA21 TCC0 WO[4] //3
 #define PIN_A5995_PHASE1 	(6)	//PA20 TCC0 WO[6] //2
 #define PIN_A5995_PHASE2 	(5) //PA15 TCC0 W0[5] //1
-#define PIN_A5995_VREF1		(4)
-#define PIN_A5995_VREF2		(9)
+#define PIN_A5995_VREF1		(4) //PA08
+#define PIN_A5995_VREF2		(9) //PA07
 #define PIN_A5995_SLEEPn	(25) //RXLED
 
 #ifndef MECHADUINO_HARDWARE

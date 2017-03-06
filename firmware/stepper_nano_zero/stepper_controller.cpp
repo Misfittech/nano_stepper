@@ -140,7 +140,7 @@ void StepperCtrl::updateParamsFromNVM(void)
 		//MotorParams_t Params;
 		motorParams.fullStepsPerRotation=200;
 		motorParams.currentHoldMa=500;
-		motorParams.currentMa=1000;
+		motorParams.currentMa=1500;
 		motorParams.motorWiring=true;
 		//memcpy((void *)&Params, (void *)&motorParams, sizeof(motorParams));
 		//nvmWriteMotorParms(Params);
@@ -159,20 +159,20 @@ void  StepperCtrl::motorReset(void)
 	// to sync motor phasing, leaving the motor at "phase 0"
 	bool state=enterCriticalSection();
 
+	//	stepperDriver.move(0,motorParams.currentMa);
+	//	delay(100);
+	//	stepperDriver.move(A4954_NUM_MICROSTEPS,motorParams.currentMa);
+	//	delay(100);
+	//	stepperDriver.move(A4954_NUM_MICROSTEPS*2,motorParams.currentMa);
+	//	delay(100);
+	//	stepperDriver.move(A4954_NUM_MICROSTEPS*3,motorParams.currentMa);
+	//	delay(100);
+	//	stepperDriver.move(A4954_NUM_MICROSTEPS*2,motorParams.currentMa);
+	//	delay(100);
+	//	stepperDriver.move(A4954_NUM_MICROSTEPS,motorParams.currentMa);
+	//	delay(100);
 	stepperDriver.move(0,motorParams.currentMa);
-	delay(100);
-	stepperDriver.move(A4954_NUM_MICROSTEPS,motorParams.currentMa);
-	delay(100);
-	stepperDriver.move(A4954_NUM_MICROSTEPS*2,motorParams.currentMa);
-	delay(100);
-	stepperDriver.move(A4954_NUM_MICROSTEPS*3,motorParams.currentMa);
-	delay(100);
-	stepperDriver.move(A4954_NUM_MICROSTEPS*2,motorParams.currentMa);
-	delay(100);
-	stepperDriver.move(A4954_NUM_MICROSTEPS,motorParams.currentMa);
-	delay(100);
-	stepperDriver.move(0,motorParams.currentMa);
-	delay(500);
+	delay(1000);
 
 	setLocationFromEncoder(); //measure new starting point
 	exitCriticalSection(state);
@@ -191,7 +191,7 @@ void StepperCtrl::setLocationFromEncoder(void)
 
 		//set our angles based on previous cal data
 
-		x=measureMeanEncoder();
+		x=sampleMeanEncoder(200);
 		a=calTable.fastReverseLookup(x);
 
 		//our cal table starts at angle zero, so lets set starting based on this and stepsize
@@ -265,12 +265,15 @@ float StepperCtrl::measureStepSize(void)
 
 	LOG("sample encoder");
 
-	angle1=measureMeanEncoder();
+	angle1=sampleMeanEncoder(200);
 
 	LOG("move");
-	stepperDriver.move(A4954_NUM_MICROSTEPS,motorParams.currentMa); //move one full step 'forward'
+	stepperDriver.move(A4954_NUM_MICROSTEPS/2,motorParams.currentMa); //move one half step 'forward'
+	delay(100);
+	stepperDriver.move(A4954_NUM_MICROSTEPS,motorParams.currentMa); //move one half step 'forward'
+	delay(500);
 	LOG("sample encoder");
-	angle2=measureMeanEncoder();
+	angle2=sampleMeanEncoder(200);
 
 	LOG("Angles %d %d",angle1,angle2);
 	if ((abs(angle2-angle1))>(ANGLE_STEPS/2))
@@ -364,7 +367,8 @@ Angle StepperCtrl::maxCalibrationError(void)
 		Angle act, desiredAngle;
 
 		//todo we should measure mean and wait until stable.
-		mean=measureMeanEncoder();
+		delay(200);
+		mean=sampleMeanEncoder(200);
 		desiredAngle=(uint16_t)(getDesiredLocation() & 0x0FFFFLL);
 
 		cal=calTable.getCal(desiredAngle);
@@ -375,17 +379,30 @@ Angle StepperCtrl::maxCalibrationError(void)
 		LOG("desired %d",(uint16_t)desiredAngle);
 		LOG("numSteps %d", numSteps);
 
-		LOG("cal error for step %d is %d, %d",j,dist,act-desiredAngle);
+		LOG("cal error for step %d is %d",j,dist);
 		LOG("mean %d, cal %d",mean, (uint16_t)cal);
 
 		updateStep(0,1);
 
-		steps+=A4954_NUM_MICROSTEPS;
+		// move one half step at a time, a full step move could cause a move backwards depending on how current ramps down
+		steps+=A4954_NUM_MICROSTEPS/2;
 		stepperDriver.move(steps,motorParams.currentMa);
+
+		delay(100);
+		steps+=A4954_NUM_MICROSTEPS/2;
+		stepperDriver.move(steps,motorParams.currentMa);
+
+
 		if (400==motorParams.fullStepsPerRotation)
 		{
+			delay(100);
 			updateStep(0,1);
-			steps=steps+A4954_NUM_MICROSTEPS;
+			// move one half step at a time, a full step move could cause a move backwards depending on how current ramps down
+			steps+=A4954_NUM_MICROSTEPS/2;
+			stepperDriver.move(steps,motorParams.currentMa);
+
+			delay(100);
+			steps+=A4954_NUM_MICROSTEPS/2;
 			stepperDriver.move(steps,motorParams.currentMa);
 		}
 		//delay(400);
@@ -407,6 +424,7 @@ Angle StepperCtrl::maxCalibrationError(void)
 	motorReset();
 	enableFeedback=feedback;
 	if (state) enableTCInterrupts();
+	LOG("max error is %d cnts", maxError);
 	return Angle((uint16_t)maxError);
 }
 
@@ -444,22 +462,36 @@ bool StepperCtrl::calibrateEncoder(void)
 		Angle cal,desiredAngle;
 		desiredAngle=(uint16_t)(getDesiredLocation() & 0x0FFFFLL);
 		cal=calTable.getCal(desiredAngle);
-		//delay(200);
-		mean=measureMeanEncoder();
+		delay(200);
+		mean=sampleMeanEncoder(200);
 
 		LOG("Previous cal distance %d, %d, mean %d, cal %d",j, cal-Angle((uint16_t)mean), mean, (uint16_t)cal);
 
 		calTable.updateTableValue(j,mean);
 
 		updateStep(0,1);
-		steps=steps+A4954_NUM_MICROSTEPS;
-		//LOG("move %d %d",steps,motorParams.currentMa );
-		stepperDriver.move(steps,motorParams.currentMa/2);
+		// move one half step at a time, a full step move could cause a move backwards depending on how current ramps down
+		steps+=A4954_NUM_MICROSTEPS/2;
+		stepperDriver.move(steps,motorParams.currentMa);
+
+		delay(100);
+		steps+=A4954_NUM_MICROSTEPS/2;
+		stepperDriver.move(steps,motorParams.currentMa);
+
+
+
 		if (400==motorParams.fullStepsPerRotation)
 		{
+			delay(100);
 			updateStep(0,1);
-			steps=steps+A4954_NUM_MICROSTEPS;
-			stepperDriver.move(steps,motorParams.currentMa/2);
+			// move one half step at a time, a full step move could cause a move backwards depending on how current ramps down
+			steps+=A4954_NUM_MICROSTEPS/2;
+			stepperDriver.move(steps,motorParams.currentMa);
+
+			delay(100);
+			steps+=A4954_NUM_MICROSTEPS/2;
+			stepperDriver.move(steps,motorParams.currentMa);
+
 		}
 
 		j++;
@@ -470,9 +502,9 @@ bool StepperCtrl::calibrateEncoder(void)
 
 
 	}
-	//calTable.printCalTable();
+	calTable.printCalTable();
 	calTable.smoothTable();
-	//calTable.printCalTable();
+	calTable.printCalTable();
 	calTable.saveToFlash(); //saves the calibration to flash
 	calTable.printCalTable();
 
@@ -601,20 +633,56 @@ Angle StepperCtrl::sampleAngle(void)
 //when sampling the mean of encoder if we are on roll over
 // edge we can have an issue so we have this function
 // to do the mean correctly
-Angle StepperCtrl::sampleMeanEncoder(uint32_t numSamples)
+Angle StepperCtrl::sampleMeanEncoder(int32_t numSamples)
 {
-	Angle last, a;
-	uint32_t i;
-	int32_t mean=0;
 
-	last=(Angle)(((uint32_t)encoder.readEncoderAngle())<<2);
-	mean=(int32_t)last;
-	for (i=0; i<(numSamples-1); i++)
+	int32_t i,last;
+	int64_t mean=0;
+	int32_t min,max;
+
+	mean=0;
+	for (i=0; i<(numSamples); i++)
 	{
-		int32_t d;
-		d=last-(Angle)(((uint32_t)encoder.readEncoderAngle())<<2); //take the difference which handles roll over
-		mean=mean+((int32_t)last+d);
+		int32_t d,x;
+		x=(((int32_t)encoder.readEncoderAngle())*4);
+		if (encoder.getError())
+		{
+
+			SerialUSB.println("AS5047 Error");
+			delay(1000);
+			return 0;
+		}
+		if(i==0)
+		{
+			last=x;
+			min=x;
+			max=x;
+		}
+		if (abs(last-x)>16384)
+		{
+			if (last>x)
+			{
+				x=x+16384;
+			} else
+			{
+				x=x-16384;
+			}
+		}
+
+
+		if (x>max)
+		{
+			max=x;
+		}
+		if (x<min)
+		{
+			min=x;
+		}
+
+		mean=mean+(x);
 	}
+
+	LOG("min %d, max %d, mean %d", min, max, (int32_t)(mean/numSamples));
 	return Angle(mean/numSamples);
 }
 
@@ -709,15 +777,17 @@ int64_t StepperCtrl::getDesiredLocation(void)
 	return ret;
 }
 
+/*
 #define N_SAMPLES2 (500)
 int32_t StepperCtrl::measureMeanEncoder(void)
 {
 	int i;
 	uint32_t t0,t1;
-	int32_t mean,first;
+	int32_t mean;
+	int32_t first;
 
 	//wait for at least 100,000 microseconds
-	delay(100);
+	delay(200);
 
 	mean=0;
 	first=0;
@@ -752,6 +822,7 @@ int32_t StepperCtrl::measureMeanEncoder(void)
 	return mean;
 
 }
+ */
 
 /*
 #define N_SAMPLES (1000)
@@ -888,11 +959,11 @@ bool StepperCtrl::vpidFeedback(void)
 
 #ifdef ENABLE_PHASE_PREDICTION
 	z=y+dy; //predict where we are for phase advancement
-//	if (ABS(dy)>fullStep/2 			          //we have moved 50% of max speed
-//		&& ABS(dy)<ANGLE_FROM_DEGREES(5.0)	) //but not so fast it could be an error
-//	{
-//		z=y+dy; //predict where we are for phase advancement
-//	}
+	//	if (ABS(dy)>fullStep/2 			          //we have moved 50% of max speed
+	//		&& ABS(dy)<ANGLE_FROM_DEGREES(5.0)	) //but not so fast it could be an error
+	//	{
+	//		z=y+dy; //predict where we are for phase advancement
+	//	}
 #endif
 
 
@@ -977,11 +1048,11 @@ bool StepperCtrl::pidFeedback(void)
 
 #ifdef ENABLE_PHASE_PREDICTION
 	y=y+dy; //predict that our new position
-//	if (ABS(dy)>fullStep/2 			          //we have moved 50% of max speed
-//		&& ABS(dy)<ANGLE_FROM_DEGREES(5.0)	) //but not so fast it could be an error
-//	{
-//		y=y+dy; //predict that our new position
-//	}
+	//	if (ABS(dy)>fullStep/2 			          //we have moved 50% of max speed
+	//		&& ABS(dy)<ANGLE_FROM_DEGREES(5.0)	) //but not so fast it could be an error
+	//	{
+	//		y=y+dy; //predict that our new position
+	//	}
 #endif
 
 	if (enableFeedback) //if ((micros()-lastCall)>(updateRate/10))
@@ -1067,11 +1138,11 @@ bool StepperCtrl::simpleFeedback(void)
 
 #ifdef ENABLE_PHASE_PREDICTION
 	y=y+dy; //predict that our new position
-//	if (ABS(dy)>fullStep/2 			          //we have moved 50% of max speed
-//		&& ABS(dy)<ANGLE_FROM_DEGREES(5.0)	) //but not so fast it could be an error
-//	{
-//		y=y+dy; //predict where we are for phase advancement
-//	}
+	//	if (ABS(dy)>fullStep/2 			          //we have moved 50% of max speed
+	//		&& ABS(dy)<ANGLE_FROM_DEGREES(5.0)	) //but not so fast it could be an error
+	//	{
+	//		y=y+dy; //predict where we are for phase advancement
+	//	}
 #endif
 
 
@@ -1138,7 +1209,7 @@ bool StepperCtrl::simpleFeedback(void)
 		}
 
 		ma=(abs(u)*(motorParams.currentMa-motorParams.currentHoldMa))
-								/ fullStep + motorParams.currentHoldMa;
+																/ fullStep + motorParams.currentHoldMa;
 
 		//ma=(abs(u)*(NVM->SystemParams.currentMa))/fullStep;
 
