@@ -21,6 +21,7 @@
 #include "nonvolatile.h"
 #include "fet_driver.h" //for the NEMA23 10A
 
+
 #define N_DATA (1024)
 
 
@@ -37,6 +38,24 @@ typedef struct {
 		int32_t Ki;
 		int32_t Kd;
 } PID_t;
+
+
+ typedef __attribute__((packed, aligned(4))) struct {
+      int32_t microSecs;
+      int32_t desiredLoc;
+      int32_t actualLoc;
+      int32_t angle;
+      int32_t ma;
+} Location_t;
+
+
+typedef struct {
+      int32_t angle;
+      int32_t ma;
+}Control_t;
+
+#define MAX_NUM_LOCATIONS (64) //maximum number of locations to buffer
+
 
 //this scales the PID parameters from Flash to floating point
 // to fixed point int32_t values
@@ -56,9 +75,15 @@ class StepperCtrl
 		A4954 stepperDriver;
 #endif
 #endif
+		volatile int32_t ticks=0;
+		volatile Location_t locs[MAX_NUM_LOCATIONS];
+		volatile int32_t locReadIndx=0;
+		volatile int32_t locWriteIndx=0;
+
 		volatile MotorParams_t motorParams;
 		volatile SystemParams_t systemParams;
 		volatile bool enabled;
+
 
 
 		volatile int32_t loopTimeus; //time to run loop in microseconds
@@ -82,7 +107,7 @@ class StepperCtrl
 		int64_t zeroAngleOffset=0;
 
 
-		volatile int16_t data[N_DATA];
+		//volatile int16_t data[N_DATA];
 
 		//does linear interpolation of the encoder calibration table
 		int32_t getAngleCalibration(int32_t encoderAngle);
@@ -101,13 +126,16 @@ class StepperCtrl
 		void updateStep(int dir, uint16_t steps);
 
 
-		bool pidFeedback(void);
-		bool simpleFeedback(void);
-		bool vpidFeedback(void);
+		bool pidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t *ptrCtrl);
+		bool simpleFeedback(int64_t desiredLoc, int64_t currentLoc,Control_t *ptrCtrl);
+		bool vpidFeedback(int64_t desiredLoc, int64_t currentLoc,Control_t *ptrCtrl);
 		int64_t getCurrentLocation(void);
 		int64_t getDesiredLocation(void);
+		void updateLocTable(int64_t desiredLoc, int64_t currentLoc,Control_t *ptrCtrl);
 
 	public:
+		int32_t getLocation(Location_t *ptrLoc);
+
 		void setVelocity(int64_t vel); //set velocity for vPID mode
 		int64_t getVelocity(void);
 		int32_t getLoopError(void) {return loopError;}; //assume atomic read
@@ -116,7 +144,7 @@ class StepperCtrl
 
 		void updateParamsFromNVM(void);  //updates the parameters from NVM
 		CalibrationTable calTable;
-		void printData(void);
+		//void printData(void);
 
 		bool calibrateEncoder(void); //do manual calibration of the encoder
 		Angle maxCalibrationError(void); //measures the maximum calibration error as an angle

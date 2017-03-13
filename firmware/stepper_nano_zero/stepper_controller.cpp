@@ -619,11 +619,17 @@ stepCtrlError_t StepperCtrl::begin(void)
 Angle StepperCtrl::sampleAngle(void)
 {
 	uint16_t angle;
+	int32_t x,y;
 
 #ifdef NZS_AS5047_PIPELINE
 	//read encoder twice such that we get the latest sample as the pipeline is always once sample behind
-	encoder.readEncoderAnglePipeLineRead(); //convert the 14 bit encoder value to a 16 bit number
-	angle=((uint32_t)encoder.readEncoderAnglePipeLineRead())<<2; //convert the 14 bit encoder value to a 16 bit number
+
+
+	y=encoder.readEncoderAnglePipeLineRead(); //convert the 14 bit encoder value to a 16 bit number
+	x=encoder.readEncoderAnglePipeLineRead();
+
+
+	angle=((uint32_t)(x)*4); //convert the 14 bit encoder value to a 16 bit number
 #else
 	angle=((uint32_t)encoder.readEncoderAngle())<<2; //convert the 14 bit encoder value to a 16 bit number
 #endif
@@ -861,7 +867,7 @@ void StepperCtrl::moveToAbsAngle(int32_t a)
 
 	n=motorParams.fullStepsPerRotation * systemParams.microsteps;
 
-	ret=(((int64_t)a+zeroAngleOffset)*n)/(int32_t)ANGLE_STEPS;
+	ret=(((int64_t)a+zeroAngleOffset)*n+ANGLE_STEPS/2)/(int32_t)ANGLE_STEPS;
 	bool state=enterCriticalSection();
 	numSteps=ret;
 	exitCriticalSection(state);
@@ -938,7 +944,7 @@ int64_t StepperCtrl::getVelocity(void)
 }
 
 //this is the velocity PID feedback loop
-bool StepperCtrl::vpidFeedback(void)
+bool StepperCtrl::vpidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t *ptrCtrl)
 {
 	int32_t fullStep=ANGLE_STEPS/motorParams.fullStepsPerRotation;
 	static int64_t lastY=getCurrentLocation();
@@ -949,7 +955,7 @@ bool StepperCtrl::vpidFeedback(void)
 	int64_t u;
 
 	//get the current location
-	y =getCurrentLocation();
+	y =currentLoc;
 
 	v=y-lastY;
 
@@ -1009,6 +1015,8 @@ bool StepperCtrl::vpidFeedback(void)
 
 		}
 
+		ptrCtrl->ma=U;
+		ptrCtrl->angle=(int32_t)z;
 		moveToAngle(z,U);
 		loopError=error;
 		lastError=error;
@@ -1030,7 +1038,7 @@ bool StepperCtrl::vpidFeedback(void)
 // threshold needs to be large.
 // We need a large threshold when we have fast update
 // rate as well. But for most part it is random
-bool StepperCtrl::pidFeedback(void)
+bool StepperCtrl::pidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t *ptrCtrl)
 {
 	static int count=0;
 
@@ -1042,7 +1050,7 @@ bool StepperCtrl::pidFeedback(void)
 	int32_t fullStep=ANGLE_STEPS/motorParams.fullStepsPerRotation;
 	int32_t dy;
 
-	y=getCurrentLocation();
+	y=currentLoc;
 	dy=y-lastY;
 	lastY=y;
 
@@ -1061,7 +1069,7 @@ bool StepperCtrl::pidFeedback(void)
 		int32_t U,x;
 
 		//error is in units of degrees when 360 degrees == 65536
-		error=(getDesiredLocation()-y); //error is currentPos-desiredPos
+		error=(desiredLoc-y); //error is currentPos-desiredPos
 
 		Iterm+=(pPID.Ki * error);
 
@@ -1094,6 +1102,8 @@ bool StepperCtrl::pidFeedback(void)
 
 		}
 
+		ptrCtrl->ma=U;
+		ptrCtrl->angle=(int32_t)y;
 		moveToAngle(y,U);
 		loopError=error;
 		lastError=error;
@@ -1113,7 +1123,7 @@ bool StepperCtrl::pidFeedback(void)
 
 //this was written to do the PID loop not modeling a DC servo
 // but rather using features of stepper motor.
-bool StepperCtrl::simpleFeedback(void)
+bool StepperCtrl::simpleFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t *ptrCtrl)
 {
 	static uint32_t t0=0;
 	static uint32_t calls=0;
@@ -1132,7 +1142,7 @@ bool StepperCtrl::simpleFeedback(void)
 	int32_t dy;
 
 	//estimate our current location based on the encoder
-	y=getCurrentLocation();
+	y=currentLoc;
 	dy=y-lastY;
 	lastY=y;
 
@@ -1162,15 +1172,14 @@ bool StepperCtrl::simpleFeedback(void)
 		int64_t error;
 		int32_t u;
 		int32_t ma;
-
 		int32_t x;
 
 		//error is in units of degrees when 360 degrees == 65536
-		error=(getDesiredLocation()-y);//measureError(); //error is currentPos-desiredPos
+		error=(desiredLoc-y);//measureError(); //error is currentPos-desiredPos
 
 
-		data[i]=(int16_t)error;
-		i++;
+		//data[i]=(int16_t)error;
+		//i++;
 		if (i>=N_DATA)
 		{
 			i=0;
@@ -1194,6 +1203,7 @@ bool StepperCtrl::simpleFeedback(void)
 		{
 			x=-fullStep;
 		}
+
 
 		u=(sPID.Kp * error)/CTRL_PID_SCALING+x+(sPID.Kd *(error-lastError))/CTRL_PID_SCALING;
 
@@ -1221,6 +1231,8 @@ bool StepperCtrl::simpleFeedback(void)
 
 
 		y=y+u;
+		ptrCtrl->ma=ma;
+		ptrCtrl->angle=(int32_t)y;
 		moveToAngle(y,ma); //35us
 
 		lastError=error;
@@ -1287,27 +1299,100 @@ void StepperCtrl::testRinging(void)
 }
  */
 
+//returns -1 if no data, else returns number of data points remaining.
+int32_t StepperCtrl::getLocation(Location_t *ptrLoc)
+{
+   bool state=enterCriticalSection();
+   int32_t n;
+   //check for empty
+   if (locReadIndx==locWriteIndx)
+   {
+      //empty data
+      exitCriticalSection(state);
+      return -1;
+   }
+
+   //else read data
+   memcpy(ptrLoc,(void *)&locs[locReadIndx], sizeof(Location_t));
+
+   //update the read index
+   locReadIndx=(locReadIndx+1)%MAX_NUM_LOCATIONS;
+
+   //calculate number of locations left
+   n=((locWriteIndx+MAX_NUM_LOCATIONS)-locReadIndx)%MAX_NUM_LOCATIONS;
+
+
+   exitCriticalSection(state);
+   return n;
+}
+
+void StepperCtrl::updateLocTable(int64_t desiredLoc, int64_t currentLoc, Control_t *ptrCtrl)
+{
+   bool state=enterCriticalSection();
+   int32_t next;
+
+   // set the next write location
+   next=(locWriteIndx+1)%MAX_NUM_LOCATIONS;
+
+   if (next==locReadIndx)
+   {
+      //we are full, exit
+      exitCriticalSection(state);
+      //RED_LED(true); //turn Red LED on to indciate buffer full
+      return;
+   }
+
+   //use ticks for the moment so we can tell if we miss data on the print.
+   locs[locWriteIndx].microSecs=(int32_t)micros();
+   locs[locWriteIndx].desiredLoc=(int32_t)(desiredLoc-zeroAngleOffset);
+   locs[locWriteIndx].actualLoc=(int32_t)(currentLoc-zeroAngleOffset);
+   locs[locWriteIndx].angle=(ptrCtrl->angle-zeroAngleOffset);
+   locs[locWriteIndx].ma=ptrCtrl->ma;
+   locWriteIndx=next;
+
+
+   exitCriticalSection(state);
+}
+
+
 bool StepperCtrl::processFeedback(void)
 {
 	bool ret;
-	int32_t us;
+	int32_t us,j;
+	Control_t ctrl;
+	int64_t desiredLoc;
+	int64_t currentLoc;
+	static int64_t mean=0;;
+
 	us=micros();
+
+	desiredLoc=getDesiredLocation();
+
+	currentLoc=getCurrentLocation();
+	mean=(31*mean+currentLoc+16)/32;
+	if (abs(currentLoc-mean)<ANGLE_FROM_DEGREES(0.3))
+	{
+	   currentLoc=mean;
+	}
+
+
+
 	switch (systemParams.controllerMode)
 	{
 		case CTRL_POS_PID:
 		{
-			ret=pidFeedback();
+			ret=pidFeedback(desiredLoc, currentLoc,  &ctrl);
 			break;
 		}
 		default:
 		case CTRL_SIMPLE:
 		{
-			ret=simpleFeedback();
+			ret=simpleFeedback(desiredLoc, currentLoc,&ctrl);
 			break;
 		}
 		case CTRL_POS_VELOCITY_PID:
 		{
-			ret=vpidFeedback();
+			ret=vpidFeedback(desiredLoc, currentLoc,&ctrl);
 			break;
 		}
 		//TODO if disable feedback and someone switches mode
@@ -1323,6 +1408,8 @@ bool StepperCtrl::processFeedback(void)
 			break;
 		}
 	}
+	ticks++;
+	updateLocTable(desiredLoc, currentLoc,&ctrl);
 	loopTimeus=micros()-us;
 	return ret;
 }
@@ -1525,18 +1612,18 @@ void StepperCtrl::PID_Autotune(void)
 
 }
 
-void StepperCtrl::printData(void)
-{
-	bool state=TC5_ISR_Enabled;
-	disableTCInterrupts();
-	int32_t i;
-	for(i=0; i<N_DATA; i++)
-	{
-		LOG ("%d\n",data[i]);
-	}
-
-	if (state) enableTCInterrupts();
-
-}
+//void StepperCtrl::printData(void)
+//{
+//	bool state=TC5_ISR_Enabled;
+//	disableTCInterrupts();
+//	int32_t i;
+//	for(i=0; i<N_DATA; i++)
+//	{
+//		LOG ("%d\n",data[i]);
+//	}
+//
+//	if (state) enableTCInterrupts();
+//
+//}
 
 #pragma GCC pop_options

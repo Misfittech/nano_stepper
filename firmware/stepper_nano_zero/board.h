@@ -38,9 +38,9 @@
 #define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
 								//as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.13" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.14" //this is what prints on LCD during splash screen
 
-#define SERIAL_BAUD (115200) //baud rate for the serial ports
+#define SERIAL_BAUD (460800)//(115200) //baud rate for the serial ports
 
 
 #define F_CPU (48000000UL)
@@ -92,6 +92,10 @@
  *	0.13
  *		- Added delay in for the 0.9 degree motor calibration and testing
  *		- changed calibration to move 1/2 step at time as it was causing problems on A5995 due to current ramp down
+ *	0.14  	- Added in data logging
+ *		- Averaged the encoder when the motor is stationary to reduce noise/vibrations
+ *
+ *
  */
 
 
