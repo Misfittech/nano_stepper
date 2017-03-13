@@ -40,7 +40,7 @@
 
 #define VERSION "FW: 0.14" //this is what prints on LCD during splash screen
 
-#define SERIAL_BAUD (460800)//(115200) //baud rate for the serial ports
+#define SERIAL_BAUD (115200) //baud rate for the serial ports
 
 
 #define F_CPU (48000000UL)
