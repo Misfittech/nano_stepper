@@ -196,6 +196,7 @@ int32_t A5995::move(int32_t stepAngle, uint32_t mA)
 		return stepAngle;
 	}
 
+	//WARNING("move %d %d",stepAngle,mA);
 
 	stepAngle=(stepAngle) % SINE_STEPS;
 	//figure out our sine Angle

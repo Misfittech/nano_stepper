@@ -388,7 +388,7 @@ Angle StepperCtrl::maxCalibrationError(void)
 		steps+=A4954_NUM_MICROSTEPS/2;
 		stepperDriver.move(steps,motorParams.currentMa);
 
-		delay(100);
+		delay(50);
 		steps+=A4954_NUM_MICROSTEPS/2;
 		stepperDriver.move(steps,motorParams.currentMa);
 
@@ -459,6 +459,7 @@ bool StepperCtrl::calibrateEncoder(void)
 	j=0;
 	while(!done)
 	{
+		int ii,N;
 		Angle cal,desiredAngle;
 		desiredAngle=(uint16_t)(getDesiredLocation() & 0x0FFFFLL);
 		cal=calTable.getCal(desiredAngle);
@@ -470,13 +471,18 @@ bool StepperCtrl::calibrateEncoder(void)
 		calTable.updateTableValue(j,mean);
 
 		updateStep(0,1);
-		// move one half step at a time, a full step move could cause a move backwards depending on how current ramps down
-		steps+=A4954_NUM_MICROSTEPS/2;
-		stepperDriver.move(steps,motorParams.currentMa);
 
-		delay(100);
-		steps+=A4954_NUM_MICROSTEPS/2;
-		stepperDriver.move(steps,motorParams.currentMa);
+		N=2;
+		// move one half step at a time, a full step move could cause a move backwards depending on how current ramps down
+		for (ii=0; ii<N; ii++)
+		{
+			steps+=A4954_NUM_MICROSTEPS/N;
+			stepperDriver.move(steps,motorParams.currentMa);
+
+			delay(50);
+		}
+		//steps+=A4954_NUM_MICROSTEPS/2;
+		//stepperDriver.move(steps,motorParams.currentMa);
 
 
 
@@ -502,9 +508,9 @@ bool StepperCtrl::calibrateEncoder(void)
 
 
 	}
-	calTable.printCalTable();
-	calTable.smoothTable();
-	calTable.printCalTable();
+	//calTable.printCalTable();
+	//calTable.smoothTable();
+	//calTable.printCalTable();
 	calTable.saveToFlash(); //saves the calibration to flash
 	calTable.printCalTable();
 
@@ -532,6 +538,7 @@ stepCtrlError_t StepperCtrl::begin(void)
 
 	//we have to update from NVM before moving motor
 	updateParamsFromNVM(); //update the local cache from the NVM
+
 
 	LOG("start stepper driver");
 	stepperDriver.begin();
@@ -783,79 +790,7 @@ int64_t StepperCtrl::getDesiredLocation(void)
 	return ret;
 }
 
-/*
-#define N_SAMPLES2 (500)
-int32_t StepperCtrl::measureMeanEncoder(void)
-{
-	int i;
-	uint32_t t0,t1;
-	int32_t mean;
-	int32_t first;
 
-	//wait for at least 100,000 microseconds
-	delay(200);
-
-	mean=0;
-	first=0;
-	for (i=0; i<N_SAMPLES2; i++)
-	{
-		int32_t x;
-		x=(int32_t)((uint16_t)encoder.readEncoderAngle())<<2; //convert the 14 bit encoder value to a 16 bit number
-		if (encoder.getError())
-		{
-
-			SerialUSB.println("AS5047 Error");
-			delay(1000);
-			return 0;
-		}
-		if (i==0)
-		{
-			first=x;
-		}
-		if (abs(x-first)>65536/2)
-		{
-			if (x<first)
-			{
-				x=x+65536;
-			}else
-			{
-				x=x-65536;
-			}
-		}
-		mean+=x;
-	}
-	mean=mean/N_SAMPLES2;
-	return mean;
-
-}
- */
-
-/*
-#define N_SAMPLES (1000)
-int StepperCtrl::measure(void)
-{
-	uint16_t angle[N_SAMPLES];
-	int i;
-	uint32_t t0,t1;
-	t0=micros();
-	for (i=0; i<N_SAMPLES; i++)
-	{
-		angle[i]=((uint16_t)encoder.readEncoderAngle())<<2; //convert the 14 bit encoder value to a 16 bit number
-	}
-	t1=micros();
-	LOG("delta Micros %u %u",t1-t0,t1);
-	SerialUSB.print(t1-t0);
-	for (i=0; i<N_SAMPLES; i++)
-	{
-		SerialUSB.print(',');
-		SerialUSB.print(angle[i]);
-		//sprintf(str,"%s,%u",str,angle[i]);
-	}
-	SerialUSB.print("\n\r");
-	return 0;
-}
-
- */
 
 
 void StepperCtrl::moveToAbsAngle(int32_t a)
@@ -959,18 +894,8 @@ bool StepperCtrl::vpidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t
 
 	v=y-lastY;
 
-	dy=(y-lastY);
-
-	z=y;
-
-#ifdef ENABLE_PHASE_PREDICTION
-	z=y+dy; //predict where we are for phase advancement
-	//	if (ABS(dy)>fullStep/2 			          //we have moved 50% of max speed
-	//		&& ABS(dy)<ANGLE_FROM_DEGREES(5.0)	) //but not so fast it could be an error
-	//	{
-	//		z=y+dy; //predict where we are for phase advancement
-	//	}
-#endif
+	//add in phase prediction
+	z=y+calculatePhasePrediction(currentLoc);
 
 
 	lastY=y;
@@ -1046,22 +971,14 @@ bool StepperCtrl::pidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t 
 	static int32_t lastError=0;
 	static int32_t Iterm=0;
 	int64_t y;
-	static int64_t lastY=getCurrentLocation();
+
 	int32_t fullStep=ANGLE_STEPS/motorParams.fullStepsPerRotation;
 	int32_t dy;
 
 	y=currentLoc;
-	dy=y-lastY;
-	lastY=y;
 
-#ifdef ENABLE_PHASE_PREDICTION
-	y=y+dy; //predict that our new position
-	//	if (ABS(dy)>fullStep/2 			          //we have moved 50% of max speed
-	//		&& ABS(dy)<ANGLE_FROM_DEGREES(5.0)	) //but not so fast it could be an error
-	//	{
-	//		y=y+dy; //predict that our new position
-	//	}
-#endif
+	//add in phase prediction
+	y=y+calculatePhasePrediction(currentLoc);
 
 	if (enableFeedback) //if ((micros()-lastCall)>(updateRate/10))
 	{
@@ -1121,6 +1038,54 @@ bool StepperCtrl::pidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t 
 	return 0;
 }
 
+
+
+// the phase prediction tries to predict error from sensor based
+// on current location and previous location.
+// TODO our error can help in the phase prediction.
+// if the error
+int64_t StepperCtrl::calculatePhasePrediction(int64_t currentLoc)
+{
+	static int64_t lastLoc=0;
+	static int32_t mean=0;
+	int32_t dx,x;
+
+#ifndef ENABLE_PHASE_PREDICTION
+	return 0;
+#endif
+
+	//what was our change in the location
+	dx=currentLoc-lastLoc;  //max value is typically less than 327(1.8 degrees) or 163(0.9 degree)
+
+	//if the motor direction changes,  zero phase prediction
+	if (SIGN(dx) != SIGN(mean))
+	{
+		//last thing we want is phase prediction during direction change.
+		mean=0;
+	} else
+	{
+		if (abs(dx)>abs(mean))
+		{
+			//increase mean really slowly, 2048 ~ 1/3 second with 6khz processing loop
+			// in fixed point since the dx is so small we need to scale it up to average
+			// dx has be be greater than 8 to change the mean...
+			// this limits the acceleration of motor above max processing speed (6k*1.8)=1800RPM
+			//  however I doubt the motor can accelerate that fast with any load...
+			//  The average helps prevent external impulse error from causing prediction to cause issues.
+			mean=DIVIDE_WITH_ROUND(2047*mean + dx*128, 2048);
+		}else
+		{
+			//decrease fast
+			//do not add more phase prediction than the difference in last two samples.
+			mean=dx*128;
+		}
+	}
+	lastLoc=currentLoc;
+
+	x= mean/128; //scale back to normal
+	return x;
+}
+
 //this was written to do the PID loop not modeling a DC servo
 // but rather using features of stepper motor.
 bool StepperCtrl::simpleFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t *ptrCtrl)
@@ -1132,28 +1097,20 @@ bool StepperCtrl::simpleFeedback(int64_t desiredLoc, int64_t currentLoc, Control
 	static int32_t lastError=0;
 	static int32_t i=0;
 	static int32_t iTerm=0;
-	static int64_t lastY=getCurrentLocation();
+	//static int64_t lastY=getCurrentLocation();
 	static int32_t velocity=0;
 
 	int32_t fullStep=ANGLE_STEPS/motorParams.fullStepsPerRotation;
 
 
 	int64_t y;
-	int32_t dy;
+
 
 	//estimate our current location based on the encoder
 	y=currentLoc;
-	dy=y-lastY;
-	lastY=y;
 
-#ifdef ENABLE_PHASE_PREDICTION
-	y=y+dy; //predict that our new position
-	//	if (ABS(dy)>fullStep/2 			          //we have moved 50% of max speed
-	//		&& ABS(dy)<ANGLE_FROM_DEGREES(5.0)	) //but not so fast it could be an error
-	//	{
-	//		y=y+dy; //predict where we are for phase advancement
-	//	}
-#endif
+	//add in phase prediction
+	y=y+calculatePhasePrediction(currentLoc);
 
 
 	//we can limit the velocity by controlling the amount we move per call to this function
@@ -1370,7 +1327,12 @@ bool StepperCtrl::processFeedback(void)
 
 	currentLoc=getCurrentLocation();
 	mean=(31*mean+currentLoc+16)/32;
+
+#ifdef A5995_DRIVER //the A5995 is has more driver noise
+	if (abs(currentLoc-mean)<ANGLE_FROM_DEGREES(0.9))
+#else
 	if (abs(currentLoc-mean)<ANGLE_FROM_DEGREES(0.3))
+#endif
 	{
 	   currentLoc=mean;
 	}

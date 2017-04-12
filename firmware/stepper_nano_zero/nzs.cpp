@@ -255,6 +255,9 @@ int controlLoop(int argc, char *argv[])
 }
 
 
+
+
+#ifndef PIN_ENABLE
 static  options_t errorPinOptions[] {
       {"Enable"},
       {"!Enable"}, //error pin works like enable on step sticks
@@ -262,7 +265,6 @@ static  options_t errorPinOptions[] {
       //	{"BiDir"}, //12/12/2016 not implemented yet
       {""}
 };
-
 
 int errorPin(int argc, char *argv[])
 {
@@ -281,6 +283,35 @@ int errorPin(int argc, char *argv[])
    }
    return NVM->SystemParams.errorPinMode;
 }
+#else
+
+static  options_t errorPinOptions[] {
+      {"Enable"},
+      {"!Enable"}, //error pin works like enable on step sticks
+//      {"Error"},
+      //	{"BiDir"}, //12/12/2016 not implemented yet
+      {""}
+};
+
+int enablePin(int argc, char *argv[])
+{
+   if (argc==1)
+   {
+      int i;
+      i=atol(argv[0]);
+      SystemParams_t params;
+      memcpy((void *)&params, (void *)&NVM->SystemParams, sizeof(params));
+      if (i!=params.errorPinMode)
+      {
+	 params.errorPinMode=(ErrorPinMode_t)i;
+	 nvmWriteSystemParms(params);
+      }
+      return i;
+   }
+   return NVM->SystemParams.errorPinMode;
+}
+
+#endif
 
 static  options_t dirPinOptions[] {
       {"High CW"},
@@ -315,7 +346,11 @@ static  menuItem_t MenuMain[] {
       {"Hold mA", motorHoldCurrent,currentOptions},
       {"Microstep", microsteps,microstepOptions},
       //		{"Ctlr Mode", controlLoop,controlLoopOptions}, //this may not be good for user to call
-      {"Error Pin", errorPin,errorPinOptions},
+#ifndef PIN_ENABLE
+	  {"Error Pin", errorPin,errorPinOptions},
+#else
+	  {"EnablePin", enablePin,errorPinOptions},
+#endif
       {"Dir Pin", dirPin,dirPinOptions},
 
 
@@ -348,6 +383,25 @@ static void stepInput(void)
 //this function is called when error pin changes as enable signal
 static void enableInput(void)
 {
+#ifdef PIN_ENABLE
+	  if (NVM->SystemParams.errorPinMode == ERROR_PIN_MODE_ENABLE)
+   {
+      static int enable;
+      //read our enable pin
+      enable = digitalRead(PIN_ENABLE);
+      enableState=enable;
+      //stepperCtrl.enable(enable);
+   }
+   if (NVM->SystemParams.errorPinMode == ERROR_PIN_MODE_ACTIVE_LOW_ENABLE)
+   {
+      static int enable;
+      //read our enable pin
+      enable = !digitalRead(PIN_ENABLE);
+      enableState=enable;
+      //stepperCtrl.enable(enable);
+   }
+
+#else
    if (NVM->SystemParams.errorPinMode == ERROR_PIN_MODE_ENABLE)
    {
       static int enable;
@@ -364,6 +418,7 @@ static void enableInput(void)
       enableState=enable;
       //stepperCtrl.enable(enable);
    }
+#endif
 }
 
 
@@ -378,6 +433,17 @@ void TC5_Handler()
 
       error=(stepperCtrl.processFeedback()); //handle the control loop
       YELLOW_LED(error);
+#ifdef PIN_ENABLE
+       GPIO_OUTPUT(PIN_ERROR);
+	 if (error)
+	 {	//assume high is inactive and low is active on error pin
+	    digitalWrite(PIN_ERROR,LOW);
+	 }else
+	 {
+	    digitalWrite(PIN_ERROR,HIGH);
+	 }
+#else
+
       if (NVM->SystemParams.errorPinMode == ERROR_PIN_MODE_ERROR)
       {
 	 GPIO_OUTPUT(PIN_ERROR);
@@ -389,7 +455,7 @@ void TC5_Handler()
 	    digitalWrite(PIN_ERROR,HIGH);
 	 }
       }
-
+#endif
       TC5->COUNT16.INTFLAG.bit.OVF = 1;    // writing a one clears the flag ovf flag
    }
 
@@ -538,8 +604,11 @@ void NZS::begin(void)
 
    attachInterrupt(digitalPinToInterrupt(PIN_STEP_INPUT), stepInput, RISING);
 
+#ifdef PIN_ENABLE
+   attachInterrupt(digitalPinToInterrupt(PIN_ENABLE), enableInput, CHANGE);
+#else
    attachInterrupt(digitalPinToInterrupt(PIN_ERROR), enableInput, CHANGE);
-
+#endif
 
    SmartPlanner.begin(&stepperCtrl);
    RED_LED(false);

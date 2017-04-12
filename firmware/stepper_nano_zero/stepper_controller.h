@@ -120,8 +120,6 @@ class StepperCtrl
 		uint32_t measureMaxCalibrationError(void);
 		void setLocationFromEncoder(void);
 
-
-		//int32_t measureMeanEncoder(void);
 		void  motorReset(void);
 		void updateStep(int dir, uint16_t steps);
 
@@ -132,6 +130,8 @@ class StepperCtrl
 		int64_t getCurrentLocation(void);
 		int64_t getDesiredLocation(void);
 		void updateLocTable(int64_t desiredLoc, int64_t currentLoc,Control_t *ptrCtrl);
+
+		int64_t calculatePhasePrediction(int64_t currentLoc);
 
 	public:
 		int32_t getLocation(Location_t *ptrLoc);

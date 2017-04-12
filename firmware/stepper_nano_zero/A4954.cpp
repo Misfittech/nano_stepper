@@ -324,7 +324,7 @@ int32_t A4954::move(int32_t stepAngle, uint32_t mA)
 
 	//figure out our sine Angle
 	// note our SINE_STEPS is 4x of microsteps for a reason
-	angle=(stepAngle+(SINE_STEPS/8)) % SINE_STEPS;
+	//angle=(stepAngle+(SINE_STEPS/8)) % SINE_STEPS;
 	angle=(stepAngle);
 
 	//calculate the sine and cosine of our angle

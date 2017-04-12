@@ -433,9 +433,9 @@ void NZS_LCD::updateLCD(void)
 	static int highRPM=0;
 	int32_t y,z,err;
 
-	int64_t lastAngle,deg;
+	static int64_t lastAngle,deg;
 	static int32_t RPM=0;
-	int32_t lasttime=0;
+	static int32_t lasttime=0;
 
 	bool state;
 	static int32_t dt=40;
@@ -446,7 +446,7 @@ void NZS_LCD::updateLCD(void)
 	if ((millis()-t0)>500)
 	{
 
-		int64_t x,d;
+		int32_t x,d;
 
 		//do first half of RPM measurement
 		if (!rpmDone)
@@ -459,7 +459,7 @@ void NZS_LCD::updateLCD(void)
 		}
 
 		//do the second half of rpm measurement and update LCD.
-		if ((millis()-t0)>(500+dt))
+		if (rpmDone && (millis()-lasttime)>(dt))
 		{
 			rpmDone=false;
 			deg=ptrStepperCtrl->getCurrentAngle();
@@ -471,10 +471,14 @@ void NZS_LCD::updateLCD(void)
 
 			d=abs(d);
 
-			x=((int64_t)d*(60*1000UL))/((int64_t)y * ANGLE_STEPS);
+			x=0;
+			if (d>0)
+			{
+				x=((int64_t)d*(60*1000UL))/((int64_t)y * ANGLE_STEPS);
+			}
 
 			lastAngle=deg;
-			RPM=x; //(7*RPM+x)/8; //average RPMs
+			RPM=(int32_t)x; //(7*RPM+x)/8; //average RPMs
 			if (RPM>500)
 			{
 				dt=10;
@@ -484,7 +488,7 @@ void NZS_LCD::updateLCD(void)
 				dt=100;
 			}
 			str[0][0]='\0';
-			//LOG("RPMs is %d, %d",x,d);
+			//LOG("RPMs is %d, %d, %d",(int32_t)x,(int32_t)d,(int32_t)y);
 			switch(ptrStepperCtrl->getControlMode())
 			{
 				case CTRL_SIMPLE:
