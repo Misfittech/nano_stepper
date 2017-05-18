@@ -25,6 +25,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define ASCII_UP_ARROW 0x9b
 //const char CMD_ANSI_UP[]= {ASCII_ESC,'[','A',0};
 
+int strcicmp(char const *a, char const *b)
+{
+    for (;; a++, b++) {
+        int d = tolower(*a) - tolower(*b);
+        if (d != 0 || !*a)
+            return d;
+    }
+}
 
 int CommandInit(sCmdUart *ptrUart, uint8_t (*kbhit)(void), uint8_t (*getch)(void),uint8_t (*putch)(char data),uint8_t (*puts)(uint8_t *buffer, uint8_t size) )
 {
@@ -249,11 +257,11 @@ unsigned int CommandParse(sCmdUart *ptrUart,sCommand *ptrCmds, char *str, char d
 #ifdef PGM_P //check and see if the PGM_P is defined for the AVR
 		if (strlen(buff)==strlen_P(cmd_list.name))
 		{
-			if (strcmp_P(buff,cmd_list.name)==0) //ignore device ID
+			if (strcicmp(buff,cmd_list.name)==0) //ignore device ID
 #else
 		if (strlen(buff)==strlen(cmd_list.name))
 		{
-			if (strcmp(buff,cmd_list.name)==0) //ignore device ID
+			if (strcicmp(buff,cmd_list.name)==0) //ignore device ID
 #endif
 			{
 				//LOG("calling function");

@@ -512,7 +512,12 @@ void NZS::begin(void)
 
    //setup the serial port for syslog
    Serial5.begin(SERIAL_BAUD);
+
+#ifndef CMD_SERIAL_PORT
    SysLogInit(&Serial5,LOG_DEBUG); //use SWO for the sysloging
+#else
+   SysLogInit(NULL, LOG_WARNING);
+#endif
 
    LOG("Power up!");
 
@@ -695,6 +700,7 @@ void NZS::loop(void)
    commandsProcess(); //handle commands
 
    Lcd.process();
+   //stepperCtrl.PrintData(); //prints steps and angle to serial USB.
 
    printLocation(); //print out the current location
 

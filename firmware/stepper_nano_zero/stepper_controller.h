@@ -136,6 +136,7 @@ class StepperCtrl
 	public:
 		int32_t getLocation(Location_t *ptrLoc);
 
+		void PrintData(void);
 		void setVelocity(int64_t vel); //set velocity for vPID mode
 		int64_t getVelocity(void);
 		int32_t getLoopError(void) {return loopError;}; //assume atomic read

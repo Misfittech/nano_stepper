@@ -43,7 +43,10 @@
 //#define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
 								//as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.16" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.17" //this is what prints on LCD during splash screen
+
+//Define this to allow command out serial port, else hardware serial is debug log
+//#define CMD_SERIAL_PORT
 
 #define SERIAL_BAUD (115200) //baud rate for the serial ports
 
@@ -104,6 +107,9 @@
  *  	 - Fixed RPM display bug on the LCD
  *  0.16 - Added support for enable and error pins on the 3-21-2017 hardware
  *
+ *	0.17 - Added the ability for the command line to go over the hardwired serial port
+ *		 - Fixed a bug where step and direction pin were setup as pulled down pins
+ *		    which could cause false stepping in nosiey environments
  */
 
 
@@ -264,8 +270,8 @@ static void boardSetupPins(void)
 	pinMode(PIN_SW4, INPUT_PULLUP);
 #endif
 
-	pinMode(PIN_STEP_INPUT, INPUT_PULLDOWN);
-	pinMode(PIN_DIR_INPUT, INPUT_PULLDOWN);
+	pinMode(PIN_STEP_INPUT, INPUT);
+	pinMode(PIN_DIR_INPUT, INPUT);
 
 #ifdef PIN_ENABLE
 	pinMode(PIN_ENABLE, INPUT_PULLUP); //default error pin as enable pin with pull up

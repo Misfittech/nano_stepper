@@ -13,6 +13,7 @@
 
 #include "nonvolatile.h" //for programmable parameters
 #include <Wire.h>
+#include <inttypes.h>
 
 #pragma GCC push_options
 #pragma GCC optimize ("-Ofast")
@@ -878,6 +879,14 @@ int64_t StepperCtrl::getVelocity(void)
 	return vel;
 }
 
+void StepperCtrl::PrintData(void)
+{
+	char s[128];
+	bool state=enterCriticalSection();
+	sprintf(s, "%u,%u,%u", (uint32_t)numSteps,(uint32_t)getDesiredAngle(),(uint32_t)getCurrentAngle());
+	SerialUSB.println(s);
+	exitCriticalSection(state);
+}
 //this is the velocity PID feedback loop
 bool StepperCtrl::vpidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t *ptrCtrl)
 {

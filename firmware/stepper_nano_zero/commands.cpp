@@ -7,12 +7,12 @@
 #include "Reset.h"
 #include "nzs.h"
 #include "ftoa.h"
-
+#include "board.h"
 extern int32_t dataEnabled;
 
 #define COMMANDS_PROMPT (":>")
 sCmdUart UsbUart;
-
+sCmdUart SerialUart;
 
 static int isPowerOfTwo (unsigned int x)
 {
@@ -1105,14 +1105,38 @@ uint8_t putch(char data)
 }
 
 
+uint8_t kbhit_hw(void)
+{
+   return Serial5.available();
+   //return SerialUSB.peek() != -1;
+}
+uint8_t getChar_hw(void)
+{
+   return Serial5.read();
+}
+uint8_t putch_hw(char data)
+{
+   return Serial5.write((uint8_t)data);
+}
+
 void commandsInit(void)
 {
    CommandInit(&UsbUart, kbhit, getChar, putch ,NULL); //set up the UART structure
+
+#ifdef CMD_SERIAL_PORT
+   CommandInit(&SerialUart, kbhit_hw, getChar_hw, putch_hw ,NULL); //set up the UART structure
+   Serial5.print("\n\rPower Up\n\r");
+   Serial5.print(COMMANDS_PROMPT);
+#endif
+
    SerialUSB.print("\n\rPower Up\n\r");
    SerialUSB.print(COMMANDS_PROMPT);
 }
 
 int commandsProcess(void)
 {
+#ifdef CMD_SERIAL_PORT
+	CommandProcess(&SerialUart,Cmds,' ',COMMANDS_PROMPT);
+#endif
    return CommandProcess(&UsbUart,Cmds,' ',COMMANDS_PROMPT);
 }
