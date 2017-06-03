@@ -52,7 +52,7 @@ void setupTCInterrupts() {
 	//  TC5->COUNT16.INTENSET.bit.MC0 = 1;         // enable compare match to CC0
 
 
-	NVIC_SetPriority(TC5_IRQn, 1);
+	NVIC_SetPriority(TC5_IRQn, 2);
 
 
 	// Enable InterruptVector
@@ -222,6 +222,25 @@ void StepperCtrl::setLocationFromEncoder(void)
 	zeroAngleOffset=getCurrentLocation();
 }
 
+int64_t StepperCtrl::getZeroAngleOffset(void)
+{
+	int64_t x;
+	bool state=enterCriticalSection();
+
+	x=zeroAngleOffset;
+
+	exitCriticalSection(state);
+	return x;
+}
+
+void StepperCtrl::setAngle(int64_t angle)
+{
+	bool state=enterCriticalSection();
+
+	zeroAngleOffset=getCurrentLocation()-angle;
+
+	exitCriticalSection(state);
+}
 
 void StepperCtrl::setZero(void)
 {
@@ -308,6 +327,11 @@ float StepperCtrl::measureStepSize(void)
 	x=((int64_t)(angle2-angle1)*36000)/(int32_t)ANGLE_STEPS;
 	// if x is ~180 we have a 1.8 degree step motor, if it is ~90 we have 0.9 degree step
 	LOG("%angle delta %d %d (%d %d)",x,abs(angle2-angle1),angle1,angle2 );
+
+	//move back
+	stepperDriver.move(-A4954_NUM_MICROSTEPS/2,motorParams.currentMa); //move one half step 'forward'
+	delay(100);
+	stepperDriver.move(-A4954_NUM_MICROSTEPS,motorParams.currentMa); //move one half step 'forward'
 
 	systemParams.microsteps=microsteps;
 	enableFeedback=feedback;
@@ -540,10 +564,6 @@ stepCtrlError_t StepperCtrl::begin(void)
 	//we have to update from NVM before moving motor
 	updateParamsFromNVM(); //update the local cache from the NVM
 
-
-	LOG("start stepper driver");
-	stepperDriver.begin();
-
 	LOG("start up encoder");
 	if (false == encoder.begin(PIN_AS5047D_CS))
 	{
@@ -553,6 +573,11 @@ stepCtrlError_t StepperCtrl::begin(void)
 	LOG("cal table init");
 	calTable.init();
 
+	startUpEncoder=(uint16_t)getEncoderAngle();
+	WARNING("start up encoder %d",startUpEncoder);
+
+	LOG("start stepper driver");
+	stepperDriver.begin();
 
 
 	LOG("measuring step size");
@@ -822,6 +847,14 @@ void StepperCtrl::moveToAngle(int32_t a, uint32_t ma)
 
 }
 
+Angle StepperCtrl::getEncoderAngle(void)
+{
+	Angle a;
+	bool state=enterCriticalSection();
+	a=calTable.fastReverseLookup(sampleAngle());
+	exitCriticalSection(state);
+	return a;
+}
 
 int64_t StepperCtrl::getCurrentLocation(void)
 {
@@ -845,6 +878,8 @@ int64_t StepperCtrl::getCurrentLocation(void)
 	return currentLocation;
 
 }
+
+
 
 int64_t StepperCtrl::getCurrentAngle(void)
 {

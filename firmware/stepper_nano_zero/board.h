@@ -43,7 +43,7 @@
 //#define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
 								//as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.17" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.18" //this is what prints on LCD during splash screen
 
 //Define this to allow command out serial port, else hardware serial is debug log
 //#define CMD_SERIAL_PORT
@@ -102,14 +102,18 @@
  *		- changed calibration to move 1/2 step at time as it was causing problems on A5995 due to current ramp down
  *	0.14  	- Added in data logging
  *		- Averaged the encoder when the motor is stationary to reduce noise/vibrations
- *  0.15 - Fixed some fet driver code
- *  	 - Added support for the NEMA17 smart stepper
- *  	 - Fixed RPM display bug on the LCD
- *  0.16 - Added support for enable and error pins on the 3-21-2017 hardware
+ *  	0.15 - Fixed some fet driver code
+ *  	 	- Added support for the NEMA17 smart stepper
+ *  	 	- Fixed RPM display bug on the LCD
+ * 	0.16 - Added support for enable and error pins on the 3-21-2017 hardware
  *
  *	0.17 - Added the ability for the command line to go over the hardwired serial port
  *		 - Fixed a bug where step and direction pin were setup as pulled down pins
  *		    which could cause false stepping in nosiey environments
+ * 	0.18 - Added support for EEPROM writting of last location during brown out - currently brown out is too fast to write
+ * 	     - Added commands to support reading and restoring location from eeprom
+ * 	     - Check for pull up on SDA/SCL before doing a I2C read as that SERCOM driver has not time outs and locks.
+ * 	     - Added faster detection of USB not being plugged in, reduces power up time with no USB
  */
 
 
@@ -185,6 +189,10 @@ typedef enum {
 #endif
 
 #endif
+
+#define PIN_SCL (21)
+#define PIN_SDA (20)
+#define PIN_USB_PWR (38) // this pin is high when usb is connected
 
 #define PIN_AS5047D_CS  (16)//analogInputToDigitalPin(PIN_A2))
 #ifndef MECHADUINO_HARDWARE

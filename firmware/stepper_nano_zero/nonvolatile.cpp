@@ -14,6 +14,8 @@
 #include <Arduino.h>
 
 
+
+
 //we use this so we can hard code calibration table
 // be sure to set the last word as status flag
 // this save time calibrating each time we do a code build
@@ -22,11 +24,14 @@ __attribute__((__aligned__(FLASH_ROW_SIZE))) const uint16_t NVM_flash[16640]={  
 #else
 __attribute__((__aligned__(FLASH_ROW_SIZE))) const uint16_t NVM_flash[256]={  //allocates 512 bytes
 #endif
-		//insert the getcal command calibration data here
-
+    		//insert the getcal command calibration data here
 		0xFFFF
 };
+
+
+
 static_assert (sizeof(nvm_t)<sizeof(NVM_flash), "nvm_t structure larger than allocated memory");
+
 
 
 

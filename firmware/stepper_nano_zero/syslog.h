@@ -38,7 +38,7 @@ extern "C"
 #ifdef CMD_SERIAL_PORT
 #define SYSLOG_PUTC(x)
 #else
-#define SYSLOG_PUTC(x) //Serial.write(x)
+#define SYSLOG_PUTC(x) //SerialUSB.write(x)
 #endif
 
 #define Sys_WDogHoldOn()

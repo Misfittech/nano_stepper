@@ -23,7 +23,7 @@
 #define ANGLE_MAX ((uint16_t)0x0FFFF)
 
 #define ANGLE_FROM_DEGREES(x) ((int32_t) ( ((float)ANGLE_STEPS*(float)(x)+180.0)/360.0 ) )
-#define ANGLE_T0_DEGREES(x) ( (float) (((x)*360.0 + (float)(ANGLE_STEPS/2))/((float)ANGLE_STEPS) ))
+#define ANGLE_T0_DEGREES(x) ( (float) ((float(x)*360.0 + (float)(ANGLE_STEPS/2))/((float)ANGLE_STEPS) ))
 class Angle
 {
 private:

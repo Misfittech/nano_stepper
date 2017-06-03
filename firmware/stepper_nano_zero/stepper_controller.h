@@ -75,6 +75,7 @@ class StepperCtrl
 		A4954 stepperDriver;
 #endif
 #endif
+		uint16_t startUpEncoder;
 		volatile int32_t ticks=0;
 		volatile Location_t locs[MAX_NUM_LOCATIONS];
 		volatile int32_t locReadIndx=0;
@@ -134,8 +135,14 @@ class StepperCtrl
 		int64_t calculatePhasePrediction(int64_t currentLoc);
 
 	public:
+		uint16_t getStartupEncoder(void) {return startUpEncoder;}
 		int32_t getLocation(Location_t *ptrLoc);
 
+		Angle getEncoderAngle(void);
+
+		void setAngle(int64_t loc);
+
+		int64_t getZeroAngleOffset(void);
 		void PrintData(void);
 		void setVelocity(int64_t vel); //set velocity for vPID mode
 		int64_t getVelocity(void);

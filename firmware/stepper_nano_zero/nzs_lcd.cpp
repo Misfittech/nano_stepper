@@ -30,7 +30,35 @@ void NZS_LCD::begin(StepperCtrl *ptrsCtrl)
 	//we need access to the stepper controller
 	ptrStepperCtrl=ptrsCtrl; //save a pointer to the stepper controller
 
-	displayEnabled=display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+
+	ptrMenu=NULL;
+	menuIndex=0;
+	menuActive=false;
+	optionIndex=0;
+	ptrOptions=NULL;
+	displayEnabled=true;
+
+	//check that the SCL and SDA are pulled high
+	pinMode(PIN_SDA, INPUT);
+	pinMode(PIN_SCL, INPUT);
+	if (digitalRead(PIN_SDA)==0)
+	{
+		//pin is not pulled up
+		displayEnabled=false;
+	}
+	if (digitalRead(PIN_SCL)==0)
+	{
+		//pin is not pulled up
+		displayEnabled=false;
+	}
+
+	if (displayEnabled)
+	{
+		displayEnabled=display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+	}else
+	{
+		WARNING("SCL/SDA not pulled up");
+	}
 	if (false == displayEnabled)
 	{
 		WARNING("NO display found, LCD will not be used");
@@ -38,12 +66,7 @@ void NZS_LCD::begin(StepperCtrl *ptrsCtrl)
 	Wire.setClock(800000);
 
 	//showSplash();
-	ptrMenu=NULL;
-	menuIndex=0;
-	menuActive=false;
 
-	optionIndex=0;
-	ptrOptions=NULL;
 }
 
 
@@ -451,7 +474,7 @@ void NZS_LCD::updateLCD(void)
 		//do first half of RPM measurement
 		if (!rpmDone)
 		{
-			LOG("loop time is %dus",ptrStepperCtrl->getLoopTime());
+			//LOG("loop time is %dus",ptrStepperCtrl->getLoopTime());
 			lastAngle=ptrStepperCtrl->getCurrentAngle();
 			lasttime=millis();
 			rpmDone=true;

@@ -2,8 +2,10 @@
 #define __COMMANDS_H__
 #include <Arduino.h>
 #include "stepper_controller.h"
+#include "nzs.h"
 
 extern StepperCtrl stepperCtrl;
+extern eepromData_t PowerupEEPROM;
 
 void commandsInit(void);
 int commandsProcess(void);

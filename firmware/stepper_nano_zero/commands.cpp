@@ -8,6 +8,8 @@
 #include "nzs.h"
 #include "ftoa.h"
 #include "board.h"
+#include "eeprom.h"
+
 extern int32_t dataEnabled;
 
 #define COMMANDS_PROMPT (":>")
@@ -64,6 +66,12 @@ CMD_STR(stop, "stops the motion planner");
 CMD_STR(setzero, "set the reference angle to zero");
 CMD_STR(data, "enables/disables binary data output");
 CMD_STR(looptime, "returns the control loop processing time");
+CMD_STR(eepromerror, "returns error in degreees from eeprom at power up realtive to current encoder");
+CMD_STR(eepromloc, "returns location in degreees eeprom on power up");
+CMD_STR(eepromwrite, "forces write of location to eeprom");
+CMD_STR(eepromsetloc, "sets the device angle based on EEPROM last reading, compenstates for error")
+CMD_STR(setpos, "sets the current angle in degrees");
+CMD_STR(reboot, "reboots the unit")
 
 //List of supported commands
 sCommand Cmds[] =
@@ -106,11 +114,105 @@ sCommand Cmds[] =
       COMMAND(setzero),
       COMMAND(data),
       COMMAND(looptime),
+	  COMMAND(eepromerror),
+	  COMMAND(eepromloc),
+	  COMMAND(eepromwrite),
+	  COMMAND(setpos),
+	  COMMAND(reboot),
+	  COMMAND(eepromsetloc),
 
       {"",0,""}, //End of list signal
 };
 
+static int reboot_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+  NVIC_SystemReset();
+  return 0;
+}
 
+static int setpos_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	if (argc>=1)
+	{
+		int64_t a;
+		float x;
+		x=fabs(atof(argv[0]));
+		a=ANGLE_FROM_DEGREES(x);
+		stepperCtrl.setAngle(a);
+		return 0;
+	}
+	return 1;
+}
+
+static int eepromwrite_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	eepromFlush();
+	return 0;
+}
+static int eepromerror_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	Angle a;
+	uint16_t error;
+	float deg;
+	char str[20];
+	a=(Angle)PowerupEEPROM.encoderAngle;
+
+	LOG("EEPROM encoder %d",(uint16_t)a);
+	LOG("start encoder %d",(uint16_t)stepperCtrl.getStartupEncoder());
+	LOG("current encoder %d",(uint16_t)stepperCtrl.getEncoderAngle());
+	a=(a-(Angle)stepperCtrl.getStartupEncoder());
+
+
+	deg=ANGLE_T0_DEGREES((uint16_t)a) ;
+	if (deg>360.0)
+	{
+	   deg=deg-360.0;
+	}
+
+	ftoa(deg,str,2,'f');
+    CommandPrintf(ptrUart,"startup error(+/-) %s deg\n\r",str);
+
+    a=(Angle)PowerupEEPROM.encoderAngle;
+    a=(a-(Angle)stepperCtrl.getEncoderAngle());
+    deg=ANGLE_T0_DEGREES((uint16_t)a);
+    if (deg>360.0)
+     {
+	deg=deg-360.0;
+     }
+    ftoa(deg,str,2,'f');
+    CommandPrintf(ptrUart,"current error(+/-) %s deg\n\r",str);
+
+    return 0;
+}
+
+static int eepromsetloc_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	Angle a;
+	int64_t deg;
+	int32_t x;
+
+	x=(uint32_t)PowerupEEPROM.encoderAngle-(uint32_t)stepperCtrl.getEncoderAngle();
+
+	deg=PowerupEEPROM.angle+x;
+
+	stepperCtrl.setAngle(deg);
+    return 0;
+}
+
+static int eepromloc_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	Angle a;
+	int64_t deg;
+	int32_t x,y;
+
+	deg=PowerupEEPROM.angle;
+
+	deg=(deg*360*100)/(int32_t)ANGLE_STEPS;
+	x=(deg)/100;
+	y=abs(deg-(x*100));
+    CommandPrintf(ptrUart,"%d.%0.2d deg\n\r",x,y);
+    return 0;
+}
 static int looptime_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 

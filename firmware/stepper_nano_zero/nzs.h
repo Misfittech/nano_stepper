@@ -21,7 +21,12 @@
 #include "stepper_controller.h"
 #include "planner.h"
 
-
+typedef struct
+{
+	int64_t angle;
+	uint16_t encoderAngle;
+	uint8_t valid;
+}eepromData_t;
 
 class NZS //nano Zero Stepper
 {

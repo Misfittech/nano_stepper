@@ -667,7 +667,7 @@ static uint32_t ADCStart(uint32_t ulPin)
 	ADC->INTENCLR.reg=0x0F;
 	ADC->INTENSET.bit.RESRDY=1;
 
-	NVIC_SetPriority(ADC_IRQn, 2);
+	NVIC_SetPriority(ADC_IRQn, 3);
 
 
 	// Clear the Data Ready flag
