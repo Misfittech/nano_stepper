@@ -336,15 +336,15 @@ uint8_t Adafruit_SSD1306::ssd1306_command(uint8_t c) {
 	{
 		// I2C
 		uint8_t control = 0x00;   // Co = 0, D/C = 0
-		LOG("wire begin");
+		//LOG("wire begin");
 		Wire.beginTransmission(_i2caddr);
-		LOG("wire write");
+		//LOG("wire write");
 		Wire.write(control);
-		LOG("wire write c");
+		//LOG("wire write c");
 		Wire.write(c);
-		LOG("wire end");
+		//LOG("wire end");
 		Wire.endTransmission();
-		LOG("wire done");
+		//LOG("wire done");
 	}
 }
 
