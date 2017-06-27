@@ -43,7 +43,7 @@
 //#define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
 								//as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.19" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.20" //this is what prints on LCD during splash screen
 
 //Define this to allow command out serial port, else hardware serial is debug log
 //#define CMD_SERIAL_PORT
@@ -115,6 +115,7 @@
  * 	     - Check for pull up on SDA/SCL before doing a I2C read as that SERCOM driver has not time outs and locks.
  * 	     - Added faster detection of USB not being plugged in, reduces power up time with no USB
  * 	0.19 - removed debug information in the ssd1306 driver which caused LCD not always to be found
+ *	0.20 - Fixed bug in calibration, thanks to Oliver E.
  */
 
 
