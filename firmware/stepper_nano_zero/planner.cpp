@@ -69,7 +69,7 @@ void TC3_Init(void)
 
 
 
-	NVIC_SetPriority(TC3_IRQn, 2);
+	NVIC_SetPriority(TC3_IRQn, 3);
 
 
 	// Enable InterruptVector

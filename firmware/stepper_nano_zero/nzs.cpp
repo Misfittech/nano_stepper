@@ -17,12 +17,17 @@
 #include "commands.h"
 #include "nonvolatile.h"
 #include "angle.h"
+#include "eeprom.h"
 
 #pragma GCC push_options
 #pragma GCC optimize ("-Ofast")
 
+eepromData_t PowerupEEPROM={0};
+
 
 volatile bool enableState=true;
+
+int32_t dataEnabled=0;
 
 StepperCtrl stepperCtrl;
 NZS_LCD Lcd;
@@ -46,7 +51,7 @@ int menuTestCal(int argc, char *argv[])
 	x=abs(x);
 	sprintf(str, "%d.%02d deg",y,x);
 	Lcd.lcdShow("Cal Error", str,"");
-  LOG("Calibration error %s",str);
+	LOG("Calibration error %s",str);
 #ifndef MECHADUINO_HARDWARE
 	while(digitalRead(PIN_SW3)==1)
 	{
@@ -253,6 +258,9 @@ int controlLoop(int argc, char *argv[])
 }
 
 
+
+
+#ifndef PIN_ENABLE
 static  options_t errorPinOptions[] {
 		{"Enable"},
 		{"!Enable"}, //error pin works like enable on step sticks
@@ -260,7 +268,6 @@ static  options_t errorPinOptions[] {
 		//	{"BiDir"}, //12/12/2016 not implemented yet
 		{""}
 };
-
 
 int errorPin(int argc, char *argv[])
 {
@@ -279,6 +286,35 @@ int errorPin(int argc, char *argv[])
 	}
 	return NVM->SystemParams.errorPinMode;
 }
+#else
+
+	static  options_t errorPinOptions[] {
+			{"Enable"},
+			{"!Enable"}, //error pin works like enable on step sticks
+			//      {"Error"},
+			//	{"BiDir"}, //12/12/2016 not implemented yet
+			{""}
+	};
+
+	int enablePin(int argc, char *argv[])
+	{
+		if (argc==1)
+		{
+			int i;
+			i=atol(argv[0]);
+			SystemParams_t params;
+			memcpy((void *)&params, (void *)&NVM->SystemParams, sizeof(params));
+			if (i!=params.errorPinMode)
+			{
+				params.errorPinMode=(ErrorPinMode_t)i;
+				nvmWriteSystemParms(params);
+			}
+			return i;
+		}
+		return NVM->SystemParams.errorPinMode;
+	}
+
+#endif
 
 static  options_t dirPinOptions[] {
 		{"High CW"},
@@ -313,7 +349,11 @@ static  menuItem_t MenuMain[] {
 		{"Hold mA", motorHoldCurrent,currentOptions},
 		{"Microstep", microsteps,microstepOptions},
 		//		{"Ctlr Mode", controlLoop,controlLoopOptions}, //this may not be good for user to call
+#ifndef PIN_ENABLE
 		{"Error Pin", errorPin,errorPinOptions},
+#else
+		{"EnablePin", enablePin,errorPinOptions},
+#endif
 		{"Dir Pin", dirPin,dirPinOptions},
 
 
@@ -346,6 +386,25 @@ static void stepInput(void)
 //this function is called when error pin changes as enable signal
 static void enableInput(void)
 {
+#ifdef PIN_ENABLE
+	if (NVM->SystemParams.errorPinMode == ERROR_PIN_MODE_ENABLE)
+	{
+		static int enable;
+		//read our enable pin
+		enable = digitalRead(PIN_ENABLE);
+		enableState=enable;
+		//stepperCtrl.enable(enable);
+	}
+	if (NVM->SystemParams.errorPinMode == ERROR_PIN_MODE_ACTIVE_LOW_ENABLE)
+	{
+		static int enable;
+		//read our enable pin
+		enable = !digitalRead(PIN_ENABLE);
+		enableState=enable;
+		//stepperCtrl.enable(enable);
+	}
+
+#else
 	if (NVM->SystemParams.errorPinMode == ERROR_PIN_MODE_ENABLE)
 	{
 		static int enable;
@@ -362,6 +421,7 @@ static void enableInput(void)
 		enableState=enable;
 		//stepperCtrl.enable(enable);
 	}
+#endif
 }
 
 
@@ -376,6 +436,17 @@ void TC5_Handler()
 
 		error=(stepperCtrl.processFeedback()); //handle the control loop
 		YELLOW_LED(error);
+#ifdef PIN_ENABLE
+		GPIO_OUTPUT(PIN_ERROR);
+		if (error)
+		{	//assume high is inactive and low is active on error pin
+			digitalWrite(PIN_ERROR,LOW);
+		}else
+		{
+			digitalWrite(PIN_ERROR,HIGH);
+		}
+#else
+
 		if (NVM->SystemParams.errorPinMode == ERROR_PIN_MODE_ERROR)
 		{
 			GPIO_OUTPUT(PIN_ERROR);
@@ -387,7 +458,7 @@ void TC5_Handler()
 				digitalWrite(PIN_ERROR,HIGH);
 			}
 		}
-
+#endif
 		TC5->COUNT16.INTFLAG.bit.OVF = 1;    // writing a one clears the flag ovf flag
 	}
 
@@ -430,6 +501,48 @@ void validateAndInitNVMParams(void)
 }
 
 
+
+void SYSCTRL_Handler(void)
+{
+	if (SYSCTRL->INTFLAG.reg & SYSCTRL_INTFLAG_BOD33DET)
+	{
+		eepromFlush(); //flush the eeprom
+		SYSCTRL->INTFLAG.reg |= SYSCTRL_INTFLAG_BOD33DET;
+	}
+}
+
+// Wait for synchronization of registers between the clock domains
+static __inline__ void syncBOD33(void) __attribute__((always_inline, unused));
+static void syncBOD33(void)  {
+	//int32_t t0=1000;
+	while (SYSCTRL->PCLKSR.bit.BOD33RDY==1)
+	{
+		//		t0--;
+		//		if (t0==0)
+		//		{
+		//			break;
+		//		}
+	}
+}
+static void configure_bod(void)
+{
+	//syncBOD33();
+	//SYSCTRL->BOD33.reg=0; //disable BOD33 before starting
+	//syncBOD33();
+	SYSCTRL->BOD33.reg=SYSCTRL_BOD33_ACTION_INTERRUPT | //generate interrupt when BOD is triggered
+			SYSCTRL_BOD33_LEVEL(48) | //about 3.2V
+			//SYSCTRL_BOD33_HYST | //enable hysteresis
+			SYSCTRL_BOD33_ENABLE; //turn module on
+
+	LOG("BOD33 %02X", SYSCTRL->BOD33.reg );
+	SYSCTRL->INTENSET.reg |= SYSCTRL_INTENSET_BOD33DET;
+
+	NVIC_SetPriority(SYSCTRL_IRQn, 1); //make highest priority as we need to save eeprom
+	// Enable InterruptVector
+	NVIC_EnableIRQ(SYSCTRL_IRQn);
+}
+
+
 void NZS::begin(void)
 {
 	int to=20;
@@ -444,34 +557,58 @@ void NZS::begin(void)
 
 	//setup the serial port for syslog
 	Serial5.begin(SERIAL_BAUD);
+
+
+#ifndef CMD_SERIAL_PORT
 	SysLogInit(&Serial5,LOG_DEBUG); //use SWO for the sysloging
+#else
+	SysLogInit(NULL, LOG_WARNING);
+#endif
 
 	LOG("Power up!");
+	pinMode(PIN_USB_PWR, INPUT);
 
-	//wait for USB serial port to come alive
-	while (!SerialUSB)
+
+	if (digitalRead(PIN_USB_PWR))
 	{
-		to--;
-		if (to == 0)
+		//wait for USB serial port to come alive
+		while (!SerialUSB)
 		{
-			break;
-		}
-		delay(500);
-	};     //wait for serial
-
+			to--;
+			if (to == 0)
+			{
+				break;
+			}
+			delay(500);
+		};     //wait for serial
+	} else
+	{
+		WARNING("USB Not connected");
+	}
 
 	validateAndInitNVMParams();
 
+	LOG("EEPROM INIT");
+	if (EEPROM_OK == eepromInit()) //init the EEPROM
+	{
+		eepromRead((uint8_t *)&PowerupEEPROM, sizeof(PowerupEEPROM));
+	}
+	configure_bod(); //configure the BOD
 
+<<<<<<< HEAD
 #ifndef DISABLE_USBstream //mod OE
 	USB_stream.setup(&stepperCtrl);
 #endif
+=======
+	LOG("Testing LCD");
+>>>>>>> refs/remotes/Misfittech/master
 	Lcd.begin(&stepperCtrl);
 	Lcd.lcdShow("Misfit"," Tech", VERSION);
 
 
 	LOG("command init!");
 	commandsInit(); //setup command handler system
+
 
 	stepCtrlError=STEPCTRL_NO_CAL;
 
@@ -539,32 +676,115 @@ void NZS::begin(void)
 
 	attachInterrupt(digitalPinToInterrupt(PIN_STEP_INPUT), stepInput, RISING);
 
+#ifdef PIN_ENABLE
+	attachInterrupt(digitalPinToInterrupt(PIN_ENABLE), enableInput, CHANGE);
+#else
 	attachInterrupt(digitalPinToInterrupt(PIN_ERROR), enableInput, CHANGE);
-
+#endif
 
 	SmartPlanner.begin(&stepperCtrl);
+	RED_LED(false);
 	LOG("SETUP DONE!");
+}
+
+
+void printLocation(void)
+{
+	char buf[128]={0};
+	Location_t loc;
+	int32_t n, i, len;
+	int32_t pktSize;
+
+	if (dataEnabled==0)
+	{
+		RED_LED(false);
+		return;
+	}
+
+	//the packet length for binary print is 12bytes
+	// assuming rate of 6Khz this would be 72,000 baud
+	i=0;
+	n=stepperCtrl.getLocation(&loc);
+	if (n==-1)
+	{
+		RED_LED(false);
+		return;
+	}
+
+	len=0;
+	pktSize=sizeof(Location_t)+1; //packet lenght is size location plus sync byte
+
+	//     //binary write
+
+	while(n>=0 && (len)<=(128-pktSize))
+	{
+		memcpy(&buf[len],&loc,sizeof(Location_t));
+		len+=sizeof(Location_t);
+		buf[len]=0XAA; //sync
+		len++;
+		buf[len]=sizeof(Location_t); //data len
+		len++;
+
+		n=stepperCtrl.getLocation(&loc);
+		i++;
+	}
+	SerialUSB.write(buf,len);
+
+	//hex write
+	// hex write is 29 bytes per tick, @ 6khz this 174000 baud
+	//   while(n>=0 && (i*29)<(200-29))
+	//   {
+	//      sprintf(buf,"%s%08X\t%08X\t%08X\n\r",buf,loc.microSecs,loc.desiredLoc,loc.actualLoc);
+	//      n=stepperCtrl.getLocation(&loc);
+	//      i++;
+	//   }
+	//   SerialUSB.write(buf,strlen(buf));
+
+	if (n<=0)
+	{
+		RED_LED(false);
+	}else
+	{
+		RED_LED(true);
+	}
+
+	return;
 }
 
 void NZS::loop(void)
 {
+	eepromData_t eepromData;
 
-	//LOG("loop time is %dus",stepperCtrl.getLoopTime());
+	//   if (dataEnabled==0)
+	//   {
+	//      LOG("loop time is %dus",stepperCtrl.getLoopTime());
+	//   }
 
 	if (enableState != stepperCtrl.getEnable())
 	{
 		stepperCtrl.enable(enableState);
 	}
 
+	//handle EEPROM
+	eepromData.angle=stepperCtrl.getCurrentAngle();
+	eepromData.encoderAngle=stepperCtrl.getEncoderAngle();
+	eepromData.valid=1;
+	eepromWriteCache((uint8_t *)&eepromData,sizeof(eepromData));
+
 	commandsProcess(); //handle commands
 
 	Lcd.process();
+	//stepperCtrl.PrintData(); //prints steps and angle to serial USB.
 
+<<<<<<< HEAD
 #ifndef DISABLE_USBstream //mod OE
 	if(USB_stream.on&&SerialUSB){
 		USB_stream.process();
 	}
 #endif
+=======
+	printLocation(); //print out the current location
+>>>>>>> refs/remotes/Misfittech/master
 
 	return;
 }

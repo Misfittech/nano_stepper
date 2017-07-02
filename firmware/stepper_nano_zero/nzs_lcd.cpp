@@ -30,7 +30,35 @@ void NZS_LCD::begin(StepperCtrl *ptrsCtrl)
 	//we need access to the stepper controller
 	ptrStepperCtrl=ptrsCtrl; //save a pointer to the stepper controller
 
-	displayEnabled=display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+
+	ptrMenu=NULL;
+	menuIndex=0;
+	menuActive=false;
+	optionIndex=0;
+	ptrOptions=NULL;
+	displayEnabled=true;
+
+	//check that the SCL and SDA are pulled high
+	pinMode(PIN_SDA, INPUT);
+	pinMode(PIN_SCL, INPUT);
+	if (digitalRead(PIN_SDA)==0)
+	{
+		//pin is not pulled up
+		displayEnabled=false;
+	}
+	if (digitalRead(PIN_SCL)==0)
+	{
+		//pin is not pulled up
+		displayEnabled=false;
+	}
+
+	if (displayEnabled)
+	{
+		displayEnabled=display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+	}else
+	{
+		WARNING("SCL/SDA not pulled up");
+	}
 	if (false == displayEnabled)
 	{
 		WARNING("NO display found, LCD will not be used");
@@ -38,12 +66,7 @@ void NZS_LCD::begin(StepperCtrl *ptrsCtrl)
 	Wire.setClock(800000);
 
 	//showSplash();
-	ptrMenu=NULL;
-	menuIndex=0;
-	menuActive=false;
 
-	optionIndex=0;
-	ptrOptions=NULL;
 }
 
 
@@ -452,6 +475,7 @@ void NZS_LCD::updateLCD(void)
 	}
 	if ((millis()-t0)>500)
 	{
+<<<<<<< HEAD
 		done = false;
 		t0=millis();
 		int64_t x,d;
@@ -461,10 +485,33 @@ void NZS_LCD::updateLCD(void)
 		deg=ptrStepperCtrl->getCurrentAngle();
 		y=millis()-lasttime;
 		err=ptrStepperCtrl->getLoopError();
+=======
+
+		int32_t x,d;
+
+		//do first half of RPM measurement
+		if (!rpmDone)
+		{
+			//LOG("loop time is %dus",ptrStepperCtrl->getLoopTime());
+			lastAngle=ptrStepperCtrl->getCurrentAngle();
+			lasttime=millis();
+			rpmDone=true;
+			return;
+		}
+
+		//do the second half of rpm measurement and update LCD.
+		if (rpmDone && (millis()-lasttime)>(dt))
+		{
+			rpmDone=false;
+			deg=ptrStepperCtrl->getCurrentAngle();
+			y=millis()-lasttime;
+			err=ptrStepperCtrl->getLoopError();
+>>>>>>> refs/remotes/Misfittech/master
 
 
 		d=(int64_t)(lastAngle-deg);
 
+<<<<<<< HEAD
 		d=abs(d);
 //		if (d>ANGLE_STEPS/2)
 //		{
@@ -472,6 +519,35 @@ void NZS_LCD::updateLCD(void)
 //		}
 
 		x=((int64_t)d*(60*1000UL))/((int64_t)y * ANGLE_STEPS);
+=======
+			x=0;
+			if (d>0)
+			{
+				x=((int64_t)d*(60*1000UL))/((int64_t)y * ANGLE_STEPS);
+			}
+
+			lastAngle=deg;
+			RPM=(int32_t)x; //(7*RPM+x)/8; //average RPMs
+			if (RPM>500)
+			{
+				dt=10;
+			}
+			if (RPM<100)
+			{
+				dt=100;
+			}
+			str[0][0]='\0';
+			//LOG("RPMs is %d, %d, %d",(int32_t)x,(int32_t)d,(int32_t)y);
+			switch(ptrStepperCtrl->getControlMode())
+			{
+				case CTRL_SIMPLE:
+					sprintf(str[0], "%dRPM simp",RPM);
+					break;
+
+				case CTRL_POS_PID:
+					sprintf(str[0], "%dRPM pPID",RPM);
+					break;
+>>>>>>> refs/remotes/Misfittech/master
 
 		lastAngle=deg;
 		RPM=x; //(7*RPM+x)/8; //average RPMs

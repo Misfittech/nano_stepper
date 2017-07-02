@@ -20,8 +20,13 @@
 //uncomment the follow lines if using the NEMA 23 10A hardware
 //#define NEMA_23_10A_HW
 
-//uncomment the following if the board uses the A5995 driver
+//uncomment the following if the board uses the A5995 driver (NEMA 23 3.2A boards)
 //#define A5995_DRIVER
+
+//The March 21 2017 NEMA 17 Smart Stepper has changed some pin outs
+// A1 was changed to read motor voltage, hence SW4 is now using D4
+// comment out this next line if using the older hardware
+#define NEMA17_SMART_STEPPER_3_21_2017
 
 #define NZS_FAST_CAL // define this to use 32k of flash for fast calibration table
 #define NZS_FAST_SINE //uses 2048 extra bytes to implement faster sine tables
@@ -35,10 +40,13 @@
 #define NZS_LCD_ABSOULTE_ANGLE  //define this to show angle from zero in positive and negative direction
 								// for example 2 rotations from start will be angle of 720 degrees
 
-#define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
+//#define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
 								//as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.12" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.20" //this is what prints on LCD during splash screen
+
+//Define this to allow command out serial port, else hardware serial is debug log
+//#define CMD_SERIAL_PORT
 
 #define SERIAL_BAUD (115200) //baud rate for the serial ports
 
@@ -89,6 +97,25 @@
  *		- fixed a constant issue with the DAC for the A4954 driver
  *		- added command for setting the operational mode of the enable pin
  *		- added the start of the A5995 driver.
+ *	0.13
+ *		- Added delay in for the 0.9 degree motor calibration and testing
+ *		- changed calibration to move 1/2 step at time as it was causing problems on A5995 due to current ramp down
+ *	0.14  	- Added in data logging
+ *		- Averaged the encoder when the motor is stationary to reduce noise/vibrations
+ *  	0.15 - Fixed some fet driver code
+ *  	 	- Added support for the NEMA17 smart stepper
+ *  	 	- Fixed RPM display bug on the LCD
+ * 	0.16 - Added support for enable and error pins on the 3-21-2017 hardware
+ *
+ *	0.17 - Added the ability for the command line to go over the hardwired serial port
+ *		 - Fixed a bug where step and direction pin were setup as pulled down pins
+ *		    which could cause false stepping in nosiey environments
+ * 	0.18 - Added support for EEPROM writting of last location during brown out - currently brown out is too fast to write
+ * 	     - Added commands to support reading and restoring location from eeprom
+ * 	     - Check for pull up on SDA/SCL before doing a I2C read as that SERCOM driver has not time outs and locks.
+ * 	     - Added faster detection of USB not being plugged in, reduces power up time with no USB
+ * 	0.19 - removed debug information in the ssd1306 driver which caused LCD not always to be found
+ *	0.20 - Fixed bug in calibration, thanks to Oliver E.
  */
 
 
@@ -149,9 +176,25 @@ typedef enum {
 
 #ifdef MECHADUINO_HARDWARE
 #define PIN_ERROR 		(19)  //analogInputToDigitalPin(PIN_A5))
-#else //not Mechaduino hardwer
+#else //not Mechaduino hardware
+#ifdef NEMA17_SMART_STEPPER_3_21_2017
+#define PIN_SW1		(19)//analogInputToDigitalPin(PIN_A5))
+#define PIN_SW3		(14)//analogInputToDigitalPin(PIN_A0))
+#define PIN_SW4		(2)//D2
+#define PIN_ENABLE	(10)
+#define PIN_ERROR	(3)
+#else
+#define PIN_SW1		(19)//analogInputToDigitalPin(PIN_A5))
+#define PIN_SW3		(14)//analogInputToDigitalPin(PIN_A0))
+#define PIN_SW4		(15)//analogInputToDigitalPin(PIN_A1))
 #define PIN_ERROR		(10)
 #endif
+
+#endif
+
+#define PIN_SCL (21)
+#define PIN_SDA (20)
+#define PIN_USB_PWR (38) // this pin is high when usb is connected
 
 #define PIN_AS5047D_CS  (16)//analogInputToDigitalPin(PIN_A2))
 #ifndef MECHADUINO_HARDWARE
@@ -183,8 +226,8 @@ typedef enum {
 #define PIN_A5995_MODE2 	(7)	//PA21 TCC0 WO[4] //3
 #define PIN_A5995_PHASE1 	(6)	//PA20 TCC0 WO[6] //2
 #define PIN_A5995_PHASE2 	(5) //PA15 TCC0 W0[5] //1
-#define PIN_A5995_VREF1		(4)
-#define PIN_A5995_VREF2		(9)
+#define PIN_A5995_VREF1		(4) //PA08
+#define PIN_A5995_VREF2		(9) //PA07
 #define PIN_A5995_SLEEPn	(25) //RXLED
 
 #ifndef MECHADUINO_HARDWARE
@@ -192,9 +235,7 @@ typedef enum {
 #endif
 
 
-#define PIN_SW1		(19)//analogInputToDigitalPin(PIN_A1))
-#define PIN_SW3		(14)//analogInputToDigitalPin(PIN_A0))
-#define PIN_SW4		(15)//analogInputToDigitalPin(PIN_A5))
+
 
 #ifdef NEMA_23_10A_HW
 #undef PIN_YELLOW_LED
@@ -239,9 +280,12 @@ static void boardSetupPins(void)
 	pinMode(PIN_SW4, INPUT_PULLUP);
 #endif
 
-	pinMode(PIN_STEP_INPUT, INPUT_PULLDOWN);
-	pinMode(PIN_DIR_INPUT, INPUT_PULLDOWN);
+	pinMode(PIN_STEP_INPUT, INPUT);
+	pinMode(PIN_DIR_INPUT, INPUT);
 
+#ifdef PIN_ENABLE
+	pinMode(PIN_ENABLE, INPUT_PULLUP); //default error pin as enable pin with pull up
+#endif
 	pinMode(PIN_ERROR, INPUT_PULLUP); //default error pin as enable pin with pull up
 
 	pinMode(PIN_AS5047D_CS,OUTPUT);

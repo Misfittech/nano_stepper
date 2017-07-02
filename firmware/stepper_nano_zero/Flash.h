@@ -16,8 +16,9 @@
 #include "syslog.h"
 
 
-#define FLASH_PAGE_SIZE_NZS (64)
+#define FLASH_PAGE_SIZE_NZS (64) //bytes
 #define FLASH_ROW_SIZE (FLASH_PAGE_SIZE_NZS*4) //defined in the datasheet as 4x page size
+#define FLASH_ERASE_VALUE (0xFF) //value of flash after an erase
 
 #define FLASH_ALLOCATE(name, size) \
 	__attribute__((__aligned__(FLASH_ROW_SIZE))) \

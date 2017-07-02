@@ -79,7 +79,7 @@ private:
 	void measureCoilA_zero(void);
 	void CalTableB(int32_t maxMA);
 	void CalTableA(int32_t maxMA);
-	void coilA_PWM(int32_t value);
+	int coilA_PWM(int32_t value);
 	void coilB_PWM(int32_t value);
 	int32_t getCoilB_mA(void);
 	int32_t getCoilA_mA(void);
