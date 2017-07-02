@@ -2,17 +2,12 @@
 #define __COMMANDS_H__
 #include <Arduino.h>
 #include "stepper_controller.h"
-<<<<<<< HEAD
-#include "USB_nzs_datastream.h"
-
-extern StepperCtrl stepperCtrl;
-extern USB_stream USB_stream;
-=======
 #include "nzs.h"
+#include "I2C_com.h"
 
 extern StepperCtrl stepperCtrl;
 extern eepromData_t PowerupEEPROM;
->>>>>>> refs/remotes/Misfittech/master
+extern i2c_com i2c_com;
 
 void commandsInit(void);
 int commandsProcess(void);

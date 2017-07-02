@@ -595,13 +595,7 @@ void NZS::begin(void)
 	}
 	configure_bod(); //configure the BOD
 
-<<<<<<< HEAD
-#ifndef DISABLE_USBstream //mod OE
-	USB_stream.setup(&stepperCtrl);
-#endif
-=======
 	LOG("Testing LCD");
->>>>>>> refs/remotes/Misfittech/master
 	Lcd.begin(&stepperCtrl);
 	Lcd.lcdShow("Misfit"," Tech", VERSION);
 
@@ -612,6 +606,9 @@ void NZS::begin(void)
 
 	stepCtrlError=STEPCTRL_NO_CAL;
 
+#ifndef DISABLE_I2Ccom //mod OE
+	i2c_com.setup(&stepperCtrl);
+#endif
 
 	while (STEPCTRL_NO_ERROR != stepCtrlError)
 	{
@@ -776,16 +773,14 @@ void NZS::loop(void)
 	Lcd.process();
 	//stepperCtrl.PrintData(); //prints steps and angle to serial USB.
 
-<<<<<<< HEAD
-#ifndef DISABLE_USBstream //mod OE
-	if(USB_stream.on&&SerialUSB){
-		USB_stream.process();
-	}
-#endif
-=======
 	printLocation(); //print out the current location
->>>>>>> refs/remotes/Misfittech/master
 
+  #ifndef DISABLE_I2Ccom //mod OE
+  if(i2c_com.on){
+		i2c_com.process();
+	}
+  #endif 
+  
 	return;
 }
 

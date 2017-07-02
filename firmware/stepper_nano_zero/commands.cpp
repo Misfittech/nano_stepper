@@ -62,89 +62,22 @@ CMD_STR(move, "moves encoder to absolute angle in degrees 'move 400.1'");
 //CMD_STR(printdata, "prints last n error terms");
 CMD_STR(velocity, "gets/set velocity in RPMs");
 CMD_STR(factoryreset, "resets board to factory defaults");
-CMD_STR(stopplaner, "stops the motion planner");;//mod OE
+CMD_STR(stop, "stops the motion planner");
 CMD_STR(setzero, "set the reference angle to zero");
-<<<<<<< HEAD
-CMD_STR(usbstream, "streams time, error and angle data through USB");//mod OE
-CMD_STR(stop, "stop USB data stream");//mod OE
-CMD_STR(reboot, "reboots NZS");//mod OE
-
-=======
 CMD_STR(data, "enables/disables binary data output");
 CMD_STR(looptime, "returns the control loop processing time");
 CMD_STR(eepromerror, "returns error in degreees from eeprom at power up realtive to current encoder");
 CMD_STR(eepromloc, "returns location in degreees eeprom on power up");
 CMD_STR(eepromwrite, "forces write of location to eeprom");
-CMD_STR(eepromsetloc, "sets the device angle based on EEPROM last reading, compenstates for error")
+CMD_STR(eepromsetloc, "sets the device angle based on EEPROM last reading, compenstates for error");
 CMD_STR(setpos, "sets the current angle in degrees");
-CMD_STR(reboot, "reboots the unit")
->>>>>>> refs/remotes/Misfittech/master
+CMD_STR(reboot, "reboots the unit");
+CMD_STR(i2c, "enable or disable I2C communication");//mod OE
+CMD_STR(i2cprint, "print i2c debug");//mod OE
 
 //List of supported commands
 sCommand Cmds[] =
 {
-<<<<<<< HEAD
-		COMMAND(help),
-		COMMAND(calibrate),
-		COMMAND(getcal),
-		COMMAND(testcal),
-		COMMAND(microsteps),
-		COMMAND(step),
-		COMMAND(feedback),
-		COMMAND(readpos),
-		COMMAND(encoderdiag),
-		COMMAND(spid),
-		COMMAND(vpid),
-		COMMAND(ppid),
-		//COMMAND(testringing),
-		//COMMAND(microsteperror),
-		COMMAND(dirpin),
-		COMMAND(errorpinmode),
-		COMMAND(errorlimit),
-		COMMAND(ctrlmode),
-		COMMAND(maxcurrent),
-		COMMAND(holdcurrent),
-		COMMAND(motorwiring),
-		COMMAND(stepsperrotation),
-
-		//COMMAND(sysparams),
-		//COMMAND(motorparams),
-		COMMAND(boot),
-		COMMAND(move),
-		//COMMAND(printdata),
-		COMMAND(velocity),
-		COMMAND(factoryreset),
-		COMMAND(stopplaner),//mod OE
-		COMMAND(setzero),
-		COMMAND(usbstream),//mod OE
-		COMMAND(stop),//mod OE
-		COMMAND(reboot),//mod OE
-
-		{"",0,""}, //End of list signal
-};
-
-static int reboot_cmd(sCmdUart *ptrUart,int argc, char * argv[])
-{
-  NVIC_SystemReset();
-  return 0;
-}
-
-static int stop_cmd(sCmdUart *ptrUart,int argc, char * argv[])
-{
-  //CommandPrintf(ptrUart,"Streaming control data stopped");
-  USB_stream.on = false;
-  return 0;
-}
-static int usbstream_cmd(sCmdUart *ptrUart,int argc, char * argv[])
-{
-  CommandPrintf(ptrUart,"Begin streaming control data");
-  USB_stream.on = true;
-  USB_stream.begin();
-  return 0;
-}
-
-static int setzero_cmd(sCmdUart *ptrUart,int argc, char * argv[])
-=======
       COMMAND(help),
       COMMAND(calibrate),
       COMMAND(getcal),
@@ -183,18 +116,46 @@ static int setzero_cmd(sCmdUart *ptrUart,int argc, char * argv[])
       COMMAND(setzero),
       COMMAND(data),
       COMMAND(looptime),
-	  COMMAND(eepromerror),
-	  COMMAND(eepromloc),
-	  COMMAND(eepromwrite),
-	  COMMAND(setpos),
-	  COMMAND(reboot),
-	  COMMAND(eepromsetloc),
+      COMMAND(eepromerror),
+      COMMAND(eepromloc),
+      COMMAND(eepromwrite),
+      COMMAND(setpos),
+      COMMAND(reboot),
+      COMMAND(eepromsetloc),
+      COMMAND(i2c),
+      COMMAND(i2cprint),
 
       {"",0,""}, //End of list signal
 };
 
+static int i2cprint_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+  i2c_com.print_=true;
+}
+
+static int i2c_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	if (argc == 1)
+	{
+		bool x;
+		x=abs(atol(argv[0]));
+		if(x==true)
+		{
+			CommandPrintf(ptrUart,"I2C communication enabled");
+			i2c_com.on = true;
+			i2c_com.begin();
+		}
+		else
+		{
+			CommandPrintf(ptrUart,"I2C communication disabled");
+			i2c_com.on = false;
+		}
+	}
+
+  return 0;
+}
+
 static int reboot_cmd(sCmdUart *ptrUart,int argc, char * argv[])
->>>>>>> refs/remotes/Misfittech/master
 {
   NVIC_SystemReset();
   return 0;
@@ -214,11 +175,7 @@ static int setpos_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	return 1;
 }
 
-<<<<<<< HEAD
-static int stopplaner_cmd(sCmdUart *ptrUart,int argc, char * argv[])
-=======
 static int eepromwrite_cmd(sCmdUart *ptrUart,int argc, char * argv[])
->>>>>>> refs/remotes/Misfittech/master
 {
 	eepromFlush();
 	return 0;

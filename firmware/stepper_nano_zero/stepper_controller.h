@@ -125,12 +125,6 @@ class StepperCtrl
 		void updateStep(int dir, uint16_t steps);
 
 
-<<<<<<< HEAD
-		bool pidFeedback(void);
-		bool simpleFeedback(void);
-		bool vpidFeedback(void);
-
-=======
 		bool pidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t *ptrCtrl);
 		bool simpleFeedback(int64_t desiredLoc, int64_t currentLoc,Control_t *ptrCtrl);
 		bool vpidFeedback(int64_t desiredLoc, int64_t currentLoc,Control_t *ptrCtrl);
@@ -139,7 +133,6 @@ class StepperCtrl
 		void updateLocTable(int64_t desiredLoc, int64_t currentLoc,Control_t *ptrCtrl);
 
 		int64_t calculatePhasePrediction(int64_t currentLoc);
->>>>>>> refs/remotes/Misfittech/master
 
 	public:
 		uint16_t getStartupEncoder(void) {return startUpEncoder;}
@@ -154,9 +147,6 @@ class StepperCtrl
 		void setVelocity(int64_t vel); //set velocity for vPID mode
 		int64_t getVelocity(void);
 		int32_t getLoopError(void) {return loopError;}; //assume atomic read
-		int64_t getCurrentLocation(void);
-		int64_t getDesiredLocation(void);
-		int64_t getDesiredSteps(void);
 
 		bool calibrationValid(void) { return calTable.calValid();}  //returns true if calbiration is good
 
