@@ -50,7 +50,10 @@ int menuTestCal(int argc, char *argv[])
 	x=x-(y*100);
 	x=abs(x);
 	sprintf(str, "%d.%02d deg",y,x);
+#ifndef DISABLE_LCD
 	Lcd.lcdShow("Cal Error", str,"");
+#endif
+
 	LOG("Calibration error %s",str);
 #ifndef MECHADUINO_HARDWARE
 	while(digitalRead(PIN_SW3)==1)
@@ -594,11 +597,11 @@ void NZS::begin(void)
 		eepromRead((uint8_t *)&PowerupEEPROM, sizeof(PowerupEEPROM));
 	}
 	configure_bod(); //configure the BOD
-
+#ifndef DISABLE_LCD
 	LOG("Testing LCD");
 	Lcd.begin(&stepperCtrl);
 	Lcd.lcdShow("Misfit"," Tech", VERSION);
-
+#endif
 
 	LOG("command init!");
 	commandsInit(); //setup command handler system
@@ -618,9 +621,9 @@ void NZS::begin(void)
 
 			SerialUSB.println("Appears that there is no Motor Power");
 			SerialUSB.println("Connect motor power!");
-
+#ifndef DISABLE_LCD
 			Lcd.lcdShow("Waiting", "MOTOR", "POWER");
-
+#endif
 			while (STEPCTRL_NO_POWER == stepCtrlError)
 			{
 				stepCtrlError=stepperCtrl.begin(); //start controller before accepting step inputs
@@ -631,6 +634,7 @@ void NZS::begin(void)
 		if (STEPCTRL_NO_CAL == stepCtrlError)
 		{
 			SerialUSB.println("You need to Calibrate");
+#ifndef DISABLE_LCD
 			Lcd.lcdShow("   NOT ", "Calibrated", " ");
 			delay(1000);
 			Lcd.setMenu(MenuCal);
@@ -646,7 +650,7 @@ void NZS::begin(void)
 			}
 
 			Lcd.setMenu(NULL);
-
+#endif
 		}
 
 		if (STEPCTRL_NO_ENCODER == stepCtrlError)
@@ -654,9 +658,9 @@ void NZS::begin(void)
 			SerialUSB.println("AS5047D not working");
 			SerialUSB.println(" try disconnecting power from board for 15+mins");
 			SerialUSB.println(" you might have to short out power pins to ground");
-
+#ifndef DISABLE_LCD
 			Lcd.lcdShow("Encoder", " Error!", " REBOOT");
-
+#endif
 			while(1)
 			{
 
@@ -664,9 +668,9 @@ void NZS::begin(void)
 		}
 
 	}
-
+#ifndef DISABLE_LCD
 	Lcd.setMenu(MenuMain);
-
+#endif
 
 	attachInterrupt(digitalPinToInterrupt(PIN_STEP_INPUT), stepInput, RISING);
 
@@ -766,8 +770,9 @@ void NZS::loop(void)
 	eepromWriteCache((uint8_t *)&eepromData,sizeof(eepromData));
 
 	commandsProcess(); //handle commands
-
+#ifndef DISABLE_LCD
 	Lcd.process();
+#endif
 	//stepperCtrl.PrintData(); //prints steps and angle to serial USB.
 
 	printLocation(); //print out the current location

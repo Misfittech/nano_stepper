@@ -22,9 +22,11 @@
 #ifndef DISABLE_LCD
 void NZS_LCD::begin(StepperCtrl *ptrsCtrl)
 {
+#ifndef MECHADUINO_HARDWARE
 	pinMode(PIN_SW1, INPUT_PULLUP);
 	pinMode(PIN_SW3, INPUT_PULLUP);
 	pinMode(PIN_SW4, INPUT_PULLUP);
+#endif
 	buttonState=0;
 
 	//we need access to the stepper controller

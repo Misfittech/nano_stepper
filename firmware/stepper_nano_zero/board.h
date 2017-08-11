@@ -17,16 +17,17 @@
 //uncomment this if you are using the Mechaduino hardware
 //#define MECHADUINO_HARDWARE
 
+
 //uncomment the follow lines if using the NEMA 23 10A hardware
 //#define NEMA_23_10A_HW
 
 //uncomment the following if the board uses the A5995 driver (NEMA 23 3.2A boards)
-//#define A5995_DRIVER
+#define A5995_DRIVER
 
 //The March 21 2017 NEMA 17 Smart Stepper has changed some pin outs
 // A1 was changed to read motor voltage, hence SW4 is now using D4
 // comment out this next line if using the older hardware
-#define NEMA17_SMART_STEPPER_3_21_2017
+//#define NEMA17_SMART_STEPPER_3_21_2017
 
 #define NZS_FAST_CAL // define this to use 32k of flash for fast calibration table
 #define NZS_FAST_SINE //uses 2048 extra bytes to implement faster sine tables
@@ -43,7 +44,7 @@
 //#define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
 								//as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.20" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.21" //this is what prints on LCD during splash screen
 
 //Define this to allow command out serial port, else hardware serial is debug log
 //#define CMD_SERIAL_PORT
@@ -116,6 +117,7 @@
  * 	     - Added faster detection of USB not being plugged in, reduces power up time with no USB
  * 	0.19 - removed debug information in the ssd1306 driver which caused LCD not always to be found
  *	0.20 - Fixed bug in calibration, thanks to Oliver E.
+ *	0.21 - Fixed issues compiling for mechaduino, including disabling LCD for MEchaduino
  */
 
 
@@ -162,6 +164,7 @@ typedef enum {
 //mechaduio and Arduino Zero has defined serial ports differently than NZS
 #ifdef MECHADUINO_HARDWARE
 #warning "Compiling source for Mechaduino NOT NZS"
+#define DISABLE_LCD
 #define Serial5 Serial 
 #else
 #define SerialUSB Serial
