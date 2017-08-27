@@ -72,6 +72,7 @@ CMD_STR(eepromwrite, "forces write of location to eeprom");
 CMD_STR(eepromsetloc, "sets the device angle based on EEPROM last reading, compenstates for error")
 CMD_STR(setpos, "sets the current angle in degrees");
 CMD_STR(reboot, "reboots the unit")
+CMD_STR(home, "moves the motor until home switch (enable pin) is pulled low. example 'home 360 0.5' move up to 360 degrees at 0.5 RPM ")
 
 //List of supported commands
 sCommand Cmds[] =
@@ -120,9 +121,51 @@ sCommand Cmds[] =
 	  COMMAND(setpos),
 	  COMMAND(reboot),
 	  COMMAND(eepromsetloc),
+	  COMMAND(home),
 
       {"",0,""}, //End of list signal
 };
+
+
+static void errorPinISR(void)
+{
+	SmartPlanner.stop(); //stop the planner
+}
+static int home_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+  float rpm=1;
+  float startDegrees=ANGLE_T0_DEGREES(stepperCtrl.getCurrentAngle());
+  float finalDegrees=startDegrees+360.0;
+  char str[20];
+  float deg;
+
+  if (argc>=1)
+  {
+	  finalDegrees=startDegrees+atof(argv[0]);
+  }
+
+  if (argc>=2)
+  {
+	  rpm=atof(argv[1]);
+  }
+
+  //setup a interrupt for the enable  pin
+  attachInterrupt(digitalPinToInterrupt(PIN_ENABLE), errorPinISR, FALLING);
+
+  SmartPlanner.moveConstantVelocity(finalDegrees,rpm);
+
+  while(!SmartPlanner.done())
+  {
+	  //do nothing
+  }
+  detachInterrupt(digitalPinToInterrupt(PIN_ENABLE));
+  deg=ANGLE_T0_DEGREES(stepperCtrl.getCurrentAngle());
+  ftoa(deg,str,2,'f');
+  CommandPrintf(ptrUart,"home is %s deg\n\r",str);
+  stepperCtrl.setZero();
+
+  return 0;
+}
 
 static int reboot_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
