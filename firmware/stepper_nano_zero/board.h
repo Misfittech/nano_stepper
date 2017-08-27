@@ -22,12 +22,12 @@
 //#define NEMA_23_10A_HW
 
 //uncomment the following if the board uses the A5995 driver (NEMA 23 3.2A boards)
-#define A5995_DRIVER
+//#define A5995_DRIVER
 
 //The March 21 2017 NEMA 17 Smart Stepper has changed some pin outs
 // A1 was changed to read motor voltage, hence SW4 is now using D4
 // comment out this next line if using the older hardware
-//#define NEMA17_SMART_STEPPER_3_21_2017
+#define NEMA17_SMART_STEPPER_3_21_2017
 
 #define NZS_FAST_CAL // define this to use 32k of flash for fast calibration table
 #define NZS_FAST_SINE //uses 2048 extra bytes to implement faster sine tables
