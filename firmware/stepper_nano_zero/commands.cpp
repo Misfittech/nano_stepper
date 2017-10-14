@@ -72,7 +72,9 @@ CMD_STR(eepromwrite, "forces write of location to eeprom");
 CMD_STR(eepromsetloc, "sets the device angle based on EEPROM last reading, compenstates for error")
 CMD_STR(setpos, "sets the current angle in degrees");
 CMD_STR(reboot, "reboots the unit")
+#ifdef PIN_ENABLE
 CMD_STR(home, "moves the motor until home switch (enable pin) is pulled low. example 'home 360 0.5' move up to 360 degrees at 0.5 RPM ")
+#endif
 
 //List of supported commands
 sCommand Cmds[] =
@@ -121,12 +123,13 @@ sCommand Cmds[] =
 	  COMMAND(setpos),
 	  COMMAND(reboot),
 	  COMMAND(eepromsetloc),
+#ifdef PIN_ENABLE
 	  COMMAND(home),
-
+#endif
       {"",0,""}, //End of list signal
 };
 
-
+#ifdef PIN_ENABLE
 static void errorPinISR(void)
 {
 	SmartPlanner.stop(); //stop the planner
@@ -166,6 +169,7 @@ static int home_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 
   return 0;
 }
+#endif
 
 static int reboot_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {

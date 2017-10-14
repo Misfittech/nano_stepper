@@ -44,7 +44,7 @@
 //#define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
 								//as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.23" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.24" //this is what prints on LCD during splash screen
 
 //Define this to allow command out serial port, else hardware serial is debug log
 #define CMD_SERIAL_PORT
@@ -120,6 +120,7 @@
  *	0.21 - Fixed issues compiling for mechaduino, including disabling LCD for MEchaduino
  *	0.22 - Added home command;
  *	0.23 -- added motor voltage sense to remove stepping on power up
+ *	0.24 - Disabled the home command which used the enable pin if you do not have enable pin
  *
  */
 
