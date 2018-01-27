@@ -18,6 +18,7 @@
 #include "nonvolatile.h"
 #include "angle.h"
 #include "eeprom.h"
+#include "steppin.h"
 
 #pragma GCC push_options
 #pragma GCC optimize ("-Ofast")
@@ -371,24 +372,13 @@ static  menuItem_t MenuCal[] {
 
 
 
-//this function is called on the rising edge of a step from external device
-static void stepInput(void)
-{
-	static int dir;
-	//read our direction pin
-	dir = digitalRead(PIN_DIR_INPUT);
 
-	if (CW_ROTATION == NVM->SystemParams.dirPinRotation)
-	{
-		dir=!dir; //reverse the rotation
-	}
-	stepperCtrl.requestStep(dir,1);
-}
 
 
 //this function is called when error pin changes as enable signal
 static void enableInput(void)
 {
+	static bool lastState=true;
 #ifdef PIN_ENABLE
 	if (NVM->SystemParams.errorPinMode == ERROR_PIN_MODE_ENABLE)
 	{
@@ -406,7 +396,6 @@ static void enableInput(void)
 		enableState=enable;
 		//stepperCtrl.enable(enable);
 	}
-
 #else
 	if (NVM->SystemParams.errorPinMode == ERROR_PIN_MODE_ENABLE)
 	{
@@ -425,6 +414,61 @@ static void enableInput(void)
 		//stepperCtrl.enable(enable);
 	}
 #endif
+
+#ifdef USE_STEP_DIR_SERIAL
+
+	static uint8_t pinCFG[2];
+	static uint8_t pinMux[2];
+	if (enableState == false  && lastState==true)
+	{
+		// turn the step/dir to serial port
+
+		//save pin config for restoring
+		pinCFG[0]=getPinCfg(PIN_STEP_INPUT);
+		pinCFG[1]=getPinCfg(PIN_DIR_INPUT);
+		pinMux[0]=getPinMux(PIN_STEP_INPUT);
+		pinMux[1]=getPinMux(PIN_DIR_INPUT);
+
+		//lets see if the step pin has interrupt enabled
+		if (pinMux[0] == PORT_PMUX_PMUXE_A_Val)
+		{
+			EExt_Interrupts in = g_APinDescription[PIN_STEP_INPUT].ulExtInt;
+			EIC->INTENCLR.reg = EIC_INTENCLR_EXTINT(1 << in); //disable the interrupt
+			//we need to disable the interrupt
+		}
+
+		//now we need to set the pins to serial port peripheral (sercom0)
+		setPinMux(PIN_STEP_INPUT,PORT_PMUX_PMUXE_C_Val);
+		setPinMux(PIN_DIR_INPUT,PORT_PMUX_PMUXE_C_Val);
+
+		//make sure that step pin is input with mux to peripheral
+		setPinCfg(PIN_STEP_INPUT, PORT_PINCFG_PMUXEN | PORT_PINCFG_INEN | PORT_PINCFG_PULLEN);
+
+		//make sure that dir pin is an output with mux to peripheral
+		setPinCfg(PIN_DIR_INPUT, PORT_PINCFG_PMUXEN );
+
+		Serial1.begin(STEP_DIR_BAUD);
+
+	}
+	if (enableState == true  && lastState==false)
+	{
+		Serial1.end();
+		setPinMux(PIN_STEP_INPUT,pinMux[0]);
+		setPinMux(PIN_DIR_INPUT,pinMux[1]);
+		setPinCfg(PIN_STEP_INPUT,pinCFG[0]);
+		setPinCfg(PIN_DIR_INPUT,pinCFG[1]);
+		//turn step/dir pins back to GPIO
+		if (PORT_PMUX_PMUXE_A_Val == pinMux[0])
+		{
+			//if interrupt was enabled for step pin renable it.
+			EExt_Interrupts in = g_APinDescription[PIN_STEP_INPUT].ulExtInt;
+			EIC->INTENSET.reg = EIC_INTENCLR_EXTINT(1 << in); //enable the interrupt
+		}
+
+	}
+
+#endif //USE_STEP_DIR_SERIAL
+	lastState=enableState;
 }
 
 
@@ -441,12 +485,14 @@ void TC5_Handler()
 		YELLOW_LED(error);
 #ifdef PIN_ENABLE
 		GPIO_OUTPUT(PIN_ERROR);
+		bool level;
+		level = !NVM->SystemParams.errorLogic;
 		if (error)
 		{	//assume high is inactive and low is active on error pin
-			digitalWrite(PIN_ERROR,LOW);
+			digitalWrite(PIN_ERROR,level);
 		}else
 		{
-			digitalWrite(PIN_ERROR,HIGH);
+			digitalWrite(PIN_ERROR,!level);
 		}
 #else
 
@@ -494,6 +540,9 @@ void validateAndInitNVMParams(void)
 		params.dirPinRotation=CW_ROTATION; //default to clockwise rotation when dir is high
 		params.errorLimit=(int32_t)ANGLE_FROM_DEGREES(1.8);
 		params.errorPinMode=ERROR_PIN_MODE_ENABLE;  //default to enable pin
+		params.homePin=-1;
+		params.errorLogic=false;
+		params.homeAngleDelay=ANGLE_FROM_DEGREES(10);
 		nvmWriteSystemParms(params);
 	}
 
@@ -672,7 +721,7 @@ void NZS::begin(void)
 	Lcd.setMenu(MenuMain);
 #endif
 
-	attachInterrupt(digitalPinToInterrupt(PIN_STEP_INPUT), stepInput, RISING);
+	stepPinSetup(); //setup the step pin
 
 #ifdef PIN_ENABLE
 	attachInterrupt(digitalPinToInterrupt(PIN_ENABLE), enableInput, CHANGE);

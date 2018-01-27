@@ -71,7 +71,7 @@ void flashWrite(const volatile void *flash_ptr,const void *data, uint32_t size)
 	destPtr=(uint8_t *)flash_ptr;
 	srcPtr=(uint8_t *)data;
 
-	//LOG("flash write called");
+	LOG("flash write called");
 	while(size>0)
 	{
 		uint32_t i,j;
@@ -80,11 +80,11 @@ void flashWrite(const volatile void *flash_ptr,const void *data, uint32_t size)
 		offset=((uint32_t)destPtr)%(FLASH_ROW_SIZE); //offset into page
 		bytesInBlock=FLASH_ROW_SIZE-offset; //this is how many bytes we need to overwrite in this page
 
-		//LOG("offset %d, bytesInBlock %d size %d", offset, bytesInBlock,size);
+		LOG("offset %d, bytesInBlock %d size %d", offset, bytesInBlock,size);
 		//get pointer to start of page
 		ptrPage=(uint32_t *) ((((uint32_t)destPtr)/(FLASH_ROW_SIZE)) * FLASH_ROW_SIZE);
 
-		//LOG("pointer to page %d(0x%08x) %d",(uint32_t)ptrPage,(uint32_t)ptrPage,destPtr);
+		LOG("pointer to page %d(0x%08x) %d",(uint32_t)ptrPage,(uint32_t)ptrPage,destPtr);
 
 		//fill page buffer with data from flash
 		memcpy(buffer,ptrPage,FLASH_ROW_SIZE);
@@ -95,7 +95,7 @@ void flashWrite(const volatile void *flash_ptr,const void *data, uint32_t size)
 		{
 			i=size;
 		}
-		//LOG("changing %d bytes",i);
+		LOG("changing %d bytes",i);
 		memcpy(&buffer[offset],srcPtr,i);
 
 		//erase page

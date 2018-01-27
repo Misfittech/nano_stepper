@@ -20,12 +20,12 @@
 // be sure to set the last word as status flag
 // this save time calibrating each time we do a code build
 #ifdef NZS_FAST_CAL
-__attribute__((__aligned__(FLASH_ROW_SIZE))) const uint16_t NVM_flash[16640]={  //allocates 33280 bytes
+__attribute__((__aligned__(FLASH_ROW_SIZE))) const uint16_t NVM_flash[16767]={  //allocates 33280 bytes
 #else
 __attribute__((__aligned__(FLASH_ROW_SIZE))) const uint16_t NVM_flash[256]={  //allocates 512 bytes
 #endif
     		//insert the getcal command calibration data here
-		0xFFFF
+			0xFFFF
 };
 
 

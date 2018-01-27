@@ -39,17 +39,27 @@
 
 
 #define NZS_LCD_ABSOULTE_ANGLE  //define this to show angle from zero in positive and negative direction
-								// for example 2 rotations from start will be angle of 720 degrees
+// for example 2 rotations from start will be angle of 720 degrees
 
 //#define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
-								//as of FW0.11 it is considered development only
+//as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.25" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.28" //this is what prints on LCD during splash screen
 
 //Define this to allow command out serial port, else hardware serial is debug log
-#define CMD_SERIAL_PORT
+//#define CMD_SERIAL_PORT
 
 #define SERIAL_BAUD (115200) //baud rate for the serial ports
+
+//This section is for using the step and dir pins as serial port
+// when the enable pin is inactive.
+#define USE_STEP_DIR_SERIAL
+#define STEP_DIR_BAUD (19200) //this is the baud rate we will use
+
+// These are used as an attempt to use TC4 to count steps
+//  currently this is not working.
+//#define USE_NEW_STEP //define this to use new step method
+//#define USE_TC_STEP //use timer counter for step pin
 
 #ifndef F_CPU
 #define F_CPU (48000000UL)
@@ -122,7 +132,10 @@
  *	0.23 -- added motor voltage sense to remove stepping on power up
  *	0.24 - Disabled the home command which used the enable pin if you do not have enable pin
  *	0.25 - Added pin read command
- *
+ *  0.26 - changed the step/dir pins to be input_pullups
+ *  0.27 - added the option to make the step/dir uart when enable is low.
+ *  	 - fixed enable to line to disable the A4954 driver
+ *  0.28 - Enabled some homing options (still under development)
  */
 
 
@@ -150,6 +163,8 @@ typedef enum {
 	CTRL_POS_VELOCITY_PID =4, //PID  Velocity controller
 } feedbackCtrl_t;
 
+// ******** EVENT SYS USAGAE ************
+// Channel 0 - Step pin event
 
 // ******** TIMER USAGE A4954 versions ************
 //TCC1 is used for DAC PWM to the A4954
@@ -157,12 +172,14 @@ typedef enum {
 //D0 step input could use TCC1 or TCC0 if not used
 //TC5 is use for timing the control loop
 //TC3 is used for planner tick
+//TC4 is used for step count
 
 // ******** TIMER USAGE NEMA23 10A versions ************
 //TCC0 PWM for the FET IN pins
 //D10 step input could use TC3 or TCC0 if not used
 //TC5 is use for timing the control loop
 //TC3 is used for planner tick
+//TC4 is used for step count
 
 
 
@@ -183,6 +200,10 @@ typedef enum {
 #define PIN_MISO        (22)
 
 #ifdef MECHADUINO_HARDWARE
+#ifdef USE_STEP_DIR_SERIAL
+#error "Step/Dir UART not supported on Mechaduino yet"
+#endif
+
 #define PIN_ERROR 		(19)  //analogInputToDigitalPin(PIN_A5))
 #else //not Mechaduino hardware
 #ifdef NEMA17_SMART_STEPPER_3_21_2017
@@ -295,8 +316,8 @@ static void boardSetupPins(void)
 	pinMode(PIN_SW4, INPUT_PULLUP);
 #endif
 
-	pinMode(PIN_STEP_INPUT, INPUT);
-	pinMode(PIN_DIR_INPUT, INPUT);
+	pinMode(PIN_STEP_INPUT, INPUT_PULLUP);
+	pinMode(PIN_DIR_INPUT, INPUT_PULLUP);
 
 #ifdef PIN_ENABLE
 	pinMode(PIN_ENABLE, INPUT_PULLUP); //default error pin as enable pin with pull up
@@ -377,28 +398,95 @@ static void inline RED_LED(bool state)
 
 #define NVIC_IS_IRQ_ENABLED(x) (NVIC->ISER[0] & (1 << ((uint32_t)(x) & 0x1F)))!=0
 
+static inline uint8_t  getPinMux(uint16_t ulPin)
+{
+	uint8_t temp;
+	if ((ulPin & 0x01)==0)
+	{
+		temp = (PORT->Group[g_APinDescription[ulPin].ulPort].PMUX[g_APinDescription[ulPin].ulPin >> 1].reg) & PORT_PMUX_PMUXE( 0xF ) ;
+	}else
+	{
+		temp = (PORT->Group[g_APinDescription[ulPin].ulPort].PMUX[g_APinDescription[ulPin].ulPin >> 1].reg)>>4 & 0xF;
+	}
+	return temp;
+}
+
+
+static inline uint8_t  getPinCfg(uint16_t ulPin)
+{
+	uint8_t temp;
+
+	temp = PORT->Group[g_APinDescription[ulPin].ulPort].PINCFG[g_APinDescription[ulPin].ulPin].reg;
+	return temp;
+}
+
+static inline void  setPinCfg(uint16_t ulPin, uint8_t val)
+{
+	PORT->Group[g_APinDescription[ulPin].ulPort].PINCFG[g_APinDescription[ulPin].ulPin].reg=val;
+}
+
+
+
+static inline void  setPinMux(uint16_t ulPin, uint8_t val)
+{
+	uint8_t temp;
+	temp = (PORT->Group[g_APinDescription[ulPin].ulPort].PMUX[g_APinDescription[ulPin].ulPin >> 1].reg);
+	if ((ulPin & 0x01)==0)
+	{
+		//if an even pin
+		temp =  (temp & 0xF0) | (val & 0x0F);
+	}else
+	{
+		temp =  (temp & 0x0F) | ((val<<4) & 0x0F);
+	}
+	PORT->Group[g_APinDescription[ulPin].ulPort].PMUX[g_APinDescription[ulPin].ulPin >> 1].reg=temp;
+	PORT->Group[g_APinDescription[ulPin].ulPort].PINCFG[g_APinDescription[ulPin].ulPin].reg |= PORT_PINCFG_PMUXEN ; // Enable port mux
+}
 
 static inline void SET_PIN_PERHERIAL(uint16_t ulPin,EPioType ulPeripheral)
 {
-	 if ( g_APinDescription[ulPin].ulPin & 1 ) // is pin odd?
-      {
-        uint32_t temp ;
+	if ( g_APinDescription[ulPin].ulPin & 1 ) // is pin odd?
+	{
+		uint32_t temp ;
 
-        // Get whole current setup for both odd and even pins and remove odd one
-        temp = (PORT->Group[g_APinDescription[ulPin].ulPort].PMUX[g_APinDescription[ulPin].ulPin >> 1].reg) & PORT_PMUX_PMUXE( 0xF ) ;
-        // Set new muxing
-        PORT->Group[g_APinDescription[ulPin].ulPort].PMUX[g_APinDescription[ulPin].ulPin >> 1].reg = temp|PORT_PMUX_PMUXO( ulPeripheral ) ;
-        // Enable port mux
-        PORT->Group[g_APinDescription[ulPin].ulPort].PINCFG[g_APinDescription[ulPin].ulPin].reg |= PORT_PINCFG_PMUXEN ;
-      }
-      else // even pin
-      {
-        uint32_t temp ;
+		// Get whole current setup for both odd and even pins and remove odd one
+		temp = (PORT->Group[g_APinDescription[ulPin].ulPort].PMUX[g_APinDescription[ulPin].ulPin >> 1].reg) & PORT_PMUX_PMUXE( 0xF ) ;
+		// Set new muxing
+		PORT->Group[g_APinDescription[ulPin].ulPort].PMUX[g_APinDescription[ulPin].ulPin >> 1].reg = temp|PORT_PMUX_PMUXO( ulPeripheral ) ;
+		// Enable port mux
+		PORT->Group[g_APinDescription[ulPin].ulPort].PINCFG[g_APinDescription[ulPin].ulPin].reg |= PORT_PINCFG_PMUXEN ;
+	}
+	else // even pin
+	{
+		uint32_t temp ;
 
-        temp = (PORT->Group[g_APinDescription[ulPin].ulPort].PMUX[g_APinDescription[ulPin].ulPin >> 1].reg) & PORT_PMUX_PMUXO( 0xF ) ;
-        PORT->Group[g_APinDescription[ulPin].ulPort].PMUX[g_APinDescription[ulPin].ulPin >> 1].reg = temp|PORT_PMUX_PMUXE( ulPeripheral ) ;
-        PORT->Group[g_APinDescription[ulPin].ulPort].PINCFG[g_APinDescription[ulPin].ulPin].reg |= PORT_PINCFG_PMUXEN ; // Enable port mux
-      }
+		temp = (PORT->Group[g_APinDescription[ulPin].ulPort].PMUX[g_APinDescription[ulPin].ulPin >> 1].reg) & PORT_PMUX_PMUXO( 0xF ) ;
+		PORT->Group[g_APinDescription[ulPin].ulPort].PMUX[g_APinDescription[ulPin].ulPin >> 1].reg = temp|PORT_PMUX_PMUXE( ulPeripheral ) ;
+		PORT->Group[g_APinDescription[ulPin].ulPort].PINCFG[g_APinDescription[ulPin].ulPin].reg |= PORT_PINCFG_PMUXEN ; // Enable port mux
+	}
+}
+
+
+//the Arduino delay function requires interrupts to work.
+// if interrupts are disabled use the delayMicroseconds which is a spin loop
+static inline void DelayMs(uint32_t ms)
+{
+	uint32_t prim;
+	/* Read PRIMASK register, check interrupt status before you disable them */
+	/* Returns 0 if they are enabled, or non-zero if disabled */
+	prim = __get_PRIMASK();
+
+	if (prim==0)
+	{
+		delay(ms);
+	}else
+	{
+		while(ms)
+		{
+			delayMicroseconds(1000);
+			ms--;
+		}
+	}
 }
 
 #endif//__BOARD_H__

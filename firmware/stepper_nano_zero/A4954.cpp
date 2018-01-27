@@ -316,6 +316,7 @@ int32_t A4954::move(int32_t stepAngle, uint32_t mA)
 		setDAC(0,0); //turn current off
 		bridge1(3); //tri state bridge outputs
 		bridge2(3); //tri state bridge outputs
+		return stepAngle;
 	}
 
 	//WARNING("move %d %d",stepAngle,mA);

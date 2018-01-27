@@ -14,6 +14,7 @@
 #include "nonvolatile.h" //for programmable parameters
 #include <Wire.h>
 #include <inttypes.h>
+#include "steppin.h"
 
 #pragma GCC push_options
 #pragma GCC optimize ("-Ofast")
@@ -116,6 +117,8 @@ void StepperCtrl::updateParamsFromNVM(void)
 	if (NVM->SystemParams.parametersVaild)
 	{
 		memcpy((void *)&systemParams, (void *)&NVM->SystemParams, sizeof(systemParams));
+		LOG("Home pin %d",systemParams.homePin);
+
 	}else
 	{
 		ERROR("This should never happen but just in case");
@@ -124,6 +127,9 @@ void StepperCtrl::updateParamsFromNVM(void)
 		systemParams.dirPinRotation=CW_ROTATION; //default to clockwise rotation when dir is high
 		systemParams.errorLimit=(int32_t)ANGLE_FROM_DEGREES(1.8);
 		systemParams.errorPinMode=ERROR_PIN_MODE_ENABLE;  //default to enable pin
+		systemParams.errorLogic=false;
+		systemParams.homeAngleDelay=ANGLE_FROM_DEGREES(10);
+		systemParams.homePin=-1; //no homing pin configured
 	}
 
 	//default the error pin to input, if it is an error pin the
@@ -142,6 +148,8 @@ void StepperCtrl::updateParamsFromNVM(void)
 		motorParams.fullStepsPerRotation=200;
 		motorParams.currentHoldMa=500;
 		motorParams.currentMa=1500;
+		motorParams.homeHoldMa=200;
+		motorParams.homeMa=800;
 		motorParams.motorWiring=true;
 		//memcpy((void *)&Params, (void *)&motorParams, sizeof(motorParams));
 		//nvmWriteMotorParms(Params);
@@ -198,19 +206,19 @@ void StepperCtrl::setLocationFromEncoder(void)
 		//our cal table starts at angle zero, so lets set starting based on this and stepsize
 		LOG("start angle %d, encoder %d", (uint16_t)a,x);
 
-// we were rounding to nearest full step, but this should not be needed TBS 10/12/2017
-//		//TODO we need to handle 0.9 degree motor
-//		if (CALIBRATION_TABLE_SIZE == motorParams.fullStepsPerRotation)
-//		{
-//			n=(int32_t)ANGLE_STEPS/CALIBRATION_TABLE_SIZE;
-//
-//			calIndex=((int32_t)((uint16_t)a+n/2)*CALIBRATION_TABLE_SIZE)/ANGLE_STEPS; //find calibration index
-//			if (calIndex>CALIBRATION_TABLE_SIZE)
-//			{
-//				calIndex-=CALIBRATION_TABLE_SIZE;
-//			}
-//			a=(uint16_t)((calIndex*ANGLE_STEPS)/CALIBRATION_TABLE_SIZE);
-//		}
+		// we were rounding to nearest full step, but this should not be needed TBS 10/12/2017
+		//		//TODO we need to handle 0.9 degree motor
+		//		if (CALIBRATION_TABLE_SIZE == motorParams.fullStepsPerRotation)
+		//		{
+		//			n=(int32_t)ANGLE_STEPS/CALIBRATION_TABLE_SIZE;
+		//
+		//			calIndex=((int32_t)((uint16_t)a+n/2)*CALIBRATION_TABLE_SIZE)/ANGLE_STEPS; //find calibration index
+		//			if (calIndex>CALIBRATION_TABLE_SIZE)
+		//			{
+		//				calIndex-=CALIBRATION_TABLE_SIZE;
+		//			}
+		//			a=(uint16_t)((calIndex*ANGLE_STEPS)/CALIBRATION_TABLE_SIZE);
+		//		}
 
 
 		x=(int32_t)((((float)(uint16_t)a)*360.0/(float)ANGLE_STEPS)*1000);
@@ -660,6 +668,8 @@ stepCtrlError_t StepperCtrl::begin(void)
 	LOG("motorWiring %d", motorParams.motorWiring);
 	LOG("currentMa %d", motorParams.currentMa);
 	LOG("holdCurrentMa %d", motorParams.currentHoldMa);
+	LOG("homeMa %d", motorParams.homeMa);
+	LOG("homeHoldMa %d", motorParams.homeHoldMa);
 
 
 	updateParamsFromNVM(); //update the local cache from the NVM
@@ -1045,6 +1055,7 @@ bool StepperCtrl::pidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t 
 	static int32_t maxError=0;
 	static int32_t lastError=0;
 	static int32_t Iterm=0;
+	int32_t ma;
 	int64_t y;
 
 	int32_t fullStep=ANGLE_STEPS/motorParams.fullStepsPerRotation;
@@ -1065,24 +1076,33 @@ bool StepperCtrl::pidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t 
 
 		Iterm+=(pPID.Ki * error);
 
+		if (systemParams.homePin>0 && digitalRead(systemParams.homePin)==0)
+		{
+			ma=motorParams.homeMa;
+		} else
+		{
+			ma=motorParams.currentMa;
+		}
+
 		//Over the long term we do not want error
 		// to be much more than our threshold
-		if (Iterm> (motorParams.currentMa*CTRL_PID_SCALING) )
+		if (Iterm> (ma*CTRL_PID_SCALING) )
 		{
-			Iterm=(motorParams.currentMa*CTRL_PID_SCALING) ;
+			Iterm=(ma*CTRL_PID_SCALING) ;
 		}
-		if (Iterm<-(motorParams.currentMa*CTRL_PID_SCALING)  )
+		if (Iterm<-(ma*CTRL_PID_SCALING)  )
 		{
-			Iterm=-(motorParams.currentMa*CTRL_PID_SCALING) ;
+			Iterm=-(ma*CTRL_PID_SCALING) ;
 		}
 
 		u=((pPID.Kp * error) + Iterm - (pPID.Kd *(lastError-error)));
 
 		U=abs(u)/CTRL_PID_SCALING;
-		if (U>motorParams.currentMa)
+		if (U>ma)
 		{
-			U=motorParams.currentMa;
+			U=ma;
 		}
+
 
 		//when error is positive we need to move reverse direction
 		if (u>0)
@@ -1161,12 +1181,40 @@ int64_t StepperCtrl::calculatePhasePrediction(int64_t currentLoc)
 	return x;
 }
 
+
+bool StepperCtrl::determineError(int64_t currentLoc,int64_t error)
+{
+	static int64_t lastLocation=0;
+	static int64_t lastError=0;
+	static int64_t lastVelocity=0;
+
+	int64_t velocity;
+
+	//since this is called on periodic timer the velocity
+	// is propotional to the change in location
+	// one rotation per second is velocity of 10, assumming 6khz update rate
+	// one rotation per minute is 10/60 velocity units
+	// since this is less than 1 we will scale the velo
+	velocity=(currentLoc-lastLocation);
+
+	if (velocity>0 &&  lastVelocity>0)
+	{
+
+	}
+
+
+	lastVelocity=velocity;
+	lastError=error;
+	lastLocation=currentLoc;
+}
+
 //this was written to do the PID loop not modeling a DC servo
 // but rather using features of stepper motor.
 bool StepperCtrl::simpleFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t *ptrCtrl)
 {
 	static uint32_t t0=0;
 	static uint32_t calls=0;
+	bool ret=false;
 
 	static int32_t maxError=0;
 	static int32_t lastError=0;
@@ -1174,11 +1222,22 @@ bool StepperCtrl::simpleFeedback(int64_t desiredLoc, int64_t currentLoc, Control
 	static int32_t iTerm=0;
 	//static int64_t lastY=getCurrentLocation();
 	static int32_t velocity=0;
+	static int32_t errorCount=0;
+
+	static bool lastProbeState=false;
+	static int64_t probeStartAngle=0;
+	static int32_t maxMa=0;
+
+
+	static int64_t filteredError=0;
+	static int32_t probeCount=0;
 
 	int32_t fullStep=ANGLE_STEPS/motorParams.fullStepsPerRotation;
 
+	int32_t ma=0;
 
 	int64_t y;
+
 
 
 	//estimate our current location based on the encoder
@@ -1203,8 +1262,9 @@ bool StepperCtrl::simpleFeedback(int64_t desiredLoc, int64_t currentLoc, Control
 	{
 		int64_t error;
 		int32_t u;
-		int32_t ma;
+
 		int32_t x;
+		int32_t kp;
 
 		//error is in units of degrees when 360 degrees == 65536
 		error=(desiredLoc-y);//measureError(); //error is currentPos-desiredPos
@@ -1217,12 +1277,14 @@ bool StepperCtrl::simpleFeedback(int64_t desiredLoc, int64_t currentLoc, Control
 			i=0;
 		}
 
-		if (abs(error)<fullStep)
+		kp=sPID.Kp;
+		if (1)//(abs(error)<(fullStep))
 		{
 			iTerm+=(sPID.Ki*error);
 			x=iTerm/CTRL_PID_SCALING;
 		}else
 		{
+			kp=(CTRL_PID_SCALING*9)/10;
 			x=0;
 			iTerm=0;
 		}
@@ -1230,14 +1292,16 @@ bool StepperCtrl::simpleFeedback(int64_t desiredLoc, int64_t currentLoc, Control
 		if (x>fullStep)
 		{
 			x=fullStep;
+			iTerm=fullStep;
 		}
 		if (x<-fullStep)
 		{
 			x=-fullStep;
+			iTerm=-fullStep;
 		}
 
 
-		u=(sPID.Kp * error)/CTRL_PID_SCALING+x+(sPID.Kd *(error-lastError))/CTRL_PID_SCALING;
+		u=(kp * error)/CTRL_PID_SCALING+x+(sPID.Kd *(error-lastError))/CTRL_PID_SCALING;
 
 
 		//limit error to full step
@@ -1250,16 +1314,63 @@ bool StepperCtrl::simpleFeedback(int64_t desiredLoc, int64_t currentLoc, Control
 			u=-fullStep;
 		}
 
-		ma=(abs(u)*(motorParams.currentMa-motorParams.currentHoldMa))
-																    		  / fullStep + motorParams.currentHoldMa;
-
-		//ma=(abs(u)*(NVM->SystemParams.currentMa))/fullStep;
-
+		ma=(abs(u)*(motorParams.currentMa-motorParams.currentHoldMa))/ fullStep + motorParams.currentHoldMa;
 		if (ma>motorParams.currentMa)
 		{
 			ma=motorParams.currentMa;
 		}
+		//maxMa=motorParams.currentMa;
 
+		if (systemParams.homePin>=0)
+		{
+
+			if (digitalRead(systemParams.homePin)==0)
+			{
+				if (lastProbeState==false)
+				{
+					//record our current angle for homing
+					probeStartAngle=desiredLoc;
+					probeCount=0;
+					maxMa=0;
+				}
+				lastProbeState=true;
+				probeCount++;
+				//we will lower current after whe have moved some amount
+
+				if (probeCount > NZS_CONTROL_LOOP_HZ && probeCount <(2* NZS_CONTROL_LOOP_HZ))
+				{
+					maxMa+=ma;
+					if (abs(error)>maxError)
+					{
+						maxError=abs(error);
+					}
+
+				}
+				if (probeCount>(2*NZS_CONTROL_LOOP_HZ))
+				{
+					//					ma=(abs(u)*(maxMa))/ fullStep;// + motorParams.homeHoldMa;
+					//					if (ma>motorParams.homeMa)
+					//					{
+					//						ma=motorParams.homeMa;
+					//					}
+
+					//if (ma>maxMa/NZS_CONTROL_LOOP_HZ)
+					{
+						ma=((maxMa/NZS_CONTROL_LOOP_HZ)*9)/10;
+					}
+
+				}
+
+			} else
+			{
+				lastProbeState=false;
+			}
+		}else
+		{
+			maxError=0;
+			probeCount=0;
+			//maxMa=0;
+		}
 
 
 		y=y+u;
@@ -1272,12 +1383,45 @@ bool StepperCtrl::simpleFeedback(int64_t desiredLoc, int64_t currentLoc, Control
 		//stepperDriver.limitCurrent(99);
 	}
 
-	if (abs(lastError)>(systemParams.errorLimit))
+	//filteredError=(filteredError*15+lastError)/16;
+
+	if (probeCount>(2*NZS_CONTROL_LOOP_HZ))
 	{
-		return 1;
+		if (abs(lastError) > maxError )
+		{
+
+			errorCount++;
+			if (errorCount>(10))
+			{
+				return 1;
+			}
+			return 0;
+		}
+
 	}
+	else
+	{
+		if (abs(lastError) > systemParams.errorLimit)
+		{
+
+			errorCount++;
+			if (errorCount>(NZS_CONTROL_LOOP_HZ/128)) // error needs to exist for some time period
+			{
+				return 1;
+			}
+			return 0;
+		}
+	}
+
+	if (errorCount>0)
+	{
+		errorCount--;
+	}
+
+	//errorCount=0;
 	stepperDriver.limitCurrent(99); //reduce noise on low error
 	return 0;
+
 }
 
 
@@ -1394,9 +1538,18 @@ bool StepperCtrl::processFeedback(void)
 	Control_t ctrl;
 	int64_t desiredLoc;
 	int64_t currentLoc;
+	int32_t steps;
 	static int64_t mean=0;;
 
 	us=micros();
+	steps=getSteps();
+	if (steps>0)
+	{
+		requestStep(1, (uint16_t)steps);
+	}else
+	{
+		requestStep(0, (uint16_t)(-steps));
+	}
 
 	desiredLoc=getDesiredLocation();
 

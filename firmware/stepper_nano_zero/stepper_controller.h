@@ -133,6 +133,7 @@ class StepperCtrl
 		void updateLocTable(int64_t desiredLoc, int64_t currentLoc,Control_t *ptrCtrl);
 
 		int64_t calculatePhasePrediction(int64_t currentLoc);
+		bool determineError(int64_t currentLoc, int64_t error);
 
 	public:
 		uint16_t getStartupEncoder(void) {return startUpEncoder;}
