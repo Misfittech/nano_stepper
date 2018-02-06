@@ -44,7 +44,7 @@
 //#define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
 //as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.28" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.29" //this is what prints on LCD during splash screen
 
 //Define this to allow command out serial port, else hardware serial is debug log
 //#define CMD_SERIAL_PORT
@@ -136,6 +136,7 @@
  *  0.27 - added the option to make the step/dir uart when enable is low.
  *  	 - fixed enable to line to disable the A4954 driver
  *  0.28 - Enabled some homing options (still under development)
+ *  0.29  - fixed rounding bug in ANGLE_T0_DEGREES
  */
 
 
