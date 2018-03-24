@@ -20,6 +20,7 @@ class AS5047D {
     int chipSelectPin;
     int16_t readAddress(uint16_t addr);
     bool error=false;
+    bool as5047d=true;
   public:
     boolean begin(int csPin);
     int16_t readEncoderAngle(void);

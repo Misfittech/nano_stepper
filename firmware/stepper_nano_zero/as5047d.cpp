@@ -24,6 +24,14 @@
 #define AS5047D_CMD_ANGLEUNC (0x3FFE)
 #define AS5047D_CMD_ANGLECOM (0x3FFF)
 
+
+#define AS5048A_CMD_NOP   (0x0000)
+#define AS5048A_CMD_ERRFL (0x0001)
+#define AS5048A_CMD_PROG  (0x0003)
+#define AS5048A_CMD_DIAAGC (0x3FFD)
+#define AS5048A_CMD_MAG    (0x3FFE)
+#define AS5048A_CMD_ANGLE  (0x3FFF)
+
 #pragma GCC push_options
 #pragma GCC optimize ("-Ofast")
 
@@ -85,8 +93,8 @@ boolean AS5047D::begin(int csPin)
 	delay(10);
 
 	//wait for the LF bit to be set
-	uint16_t data=0,t0=2000;
-	while (getBit(data,8)==0)
+	uint16_t data=0,t0=100;
+	while (getBit(data,8)==0 && t0>0)
 	{
 		delay(1);
 		t0--;
@@ -94,11 +102,34 @@ boolean AS5047D::begin(int csPin)
 		{
 			ERROR("LF bit not set");
 			error=true;
-			return false;
+			break;
+			//return false;
 		}
-		LOG("data is 0x%04X",data);
+		LOG("AS5047D diag data is 0x%04X",data);
 		data=readAddress(AS5047D_CMD_DIAAGC);
 	}
+
+	if (error)
+	{
+		error=false;
+		uint16_t data=0,t0=100;
+		while (getBit(data,8)==0 && t0>0)
+		{
+			delay(1);
+			t0--;
+			if (t0==0)
+			{
+				ERROR("AS5048A OCF bit not set");
+				error=true;
+				return false;
+			}
+			data=readAddress(AS5048A_CMD_DIAAGC);
+			LOG("AS5048A diag data is 0x%04X",data);
+		}
+		as5047d=false;
+
+	}
+
 
 #ifdef NZS_AS5047_PIPELINE
 	//read encoder a few times to flush the pipeline
@@ -159,12 +190,17 @@ int16_t AS5047D::readAddress(uint16_t addr)
 //read the encoders 
 int16_t AS5047D::readEncoderAngle(void)
 {
-	return readAddress(AS5047D_CMD_ANGLECOM);
+	if (as5047d)
+	{
+		return readAddress(AS5047D_CMD_ANGLECOM);
+	}
+	return readAddress(AS5048A_CMD_ANGLE);
 }
 
 //pipelined read of the encoder angle used for high speed reads, but value is always one read behind
 int16_t AS5047D::readEncoderAnglePipeLineRead(void)
 {
+
 	int16_t data;
 	int error, t0=10;
 	GPIO_LOW(chipSelectPin);//(chipSelectPin, LOW);
@@ -194,6 +230,9 @@ void AS5047D::diagnostics(char *ptrStr)
 {
 	int16_t data;
 	int m,d;
+
+	if (as5047d)
+	{
 
 	data=readAddress(AS5047D_CMD_DIAAGC);
 
@@ -241,6 +280,16 @@ void AS5047D::diagnostics(char *ptrStr)
 		sprintf(ptrStr,"%sDAECANG: 0x%04X(%d) %d.%02d deg(est)\n\r", ptrStr,data,data,m,d);
 
 	}
+	} else
+	{
+		data=readAddress(AS5048A_CMD_DIAAGC);
+		sprintf(ptrStr,"AS5048A DIAAGC: 0x%04X\n\r", data);
+		data=readAddress(AS5048A_CMD_MAG);
+		sprintf(ptrStr,"%sMagnitude: %d\n\r", ptrStr,data);
+		data=readAddress(AS5048A_CMD_ANGLE);
+		sprintf(ptrStr,"%sAngle: %d\n\r", ptrStr,data);
+	}
+
 }
 
 #pragma GCC pop_options
