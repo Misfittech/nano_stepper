@@ -312,7 +312,7 @@ int32_t A4954::move(int32_t stepAngle, uint32_t mA)
 
 	if (enabled == false)
 	{
-		WARNING("A4954 disabled");
+		//WARNING("A4954 disabled");
 		setDAC(0,0); //turn current off
 		bridge1(3); //tri state bridge outputs
 		bridge2(3); //tri state bridge outputs

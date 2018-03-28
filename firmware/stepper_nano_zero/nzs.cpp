@@ -385,6 +385,10 @@ static void enableInput(void)
 		static int enable;
 		//read our enable pin
 		enable = digitalRead(PIN_ENABLE);
+		if (enable != enableState)
+		{
+			WARNING("Enable now %d",enable);
+		}
 		enableState=enable;
 		//stepperCtrl.enable(enable);
 	}
@@ -393,6 +397,10 @@ static void enableInput(void)
 		static int enable;
 		//read our enable pin
 		enable = !digitalRead(PIN_ENABLE);
+		if (enable != enableState)
+		{
+			WARNING("Enable now %d",enable);
+		}
 		enableState=enable;
 		//stepperCtrl.enable(enable);
 	}
@@ -807,6 +815,10 @@ void NZS::loop(void)
 	//      LOG("loop time is %dus",stepperCtrl.getLoopTime());
 	//   }
 
+	//read the enable pin and update
+	// this is also done as an edge interrupt but does not always see
+	// to trigger the ISR.
+	enableInput();
 	if (enableState != stepperCtrl.getEnable())
 	{
 		stepperCtrl.enable(enableState);
@@ -823,6 +835,7 @@ void NZS::loop(void)
 	Lcd.process();
 #endif
 	//stepperCtrl.PrintData(); //prints steps and angle to serial USB.
+
 
 	printLocation(); //print out the current location
 
