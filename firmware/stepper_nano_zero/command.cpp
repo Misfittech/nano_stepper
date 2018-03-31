@@ -129,7 +129,7 @@ unsigned int CommandParse(sCmdUart *ptrUart,sCommand *ptrCmds, char *str, char d
 
 	sCommand cmd_list;
 
-	CommandPrintf(ptrUart,"MisfitTech Smart Stepper %s\r\n", VERSION);
+	CommandPrintf(ptrUart,"MisfitTech Smart Stepper %s\r\n", VERSION); 
 
 	while (*str==0x20 || *str=='\n' || *str=='\r' || *str=='\t') str++;
 	//first we need find command and arguments
