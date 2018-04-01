@@ -18,7 +18,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "command.h"
 #include <string.h>
-#include "board.h"
+
 
 #define ASCII_BACKSPACE 0x08
 #define ASCII_ESC 0x1B
@@ -129,7 +129,6 @@ unsigned int CommandParse(sCmdUart *ptrUart,sCommand *ptrCmds, char *str, char d
 
 	sCommand cmd_list;
 
-	CommandPrintf(ptrUart,"MisfitTech Smart Stepper %s\r\n", VERSION); 
 
 	while (*str==0x20 || *str=='\n' || *str=='\r' || *str=='\t') str++;
 	//first we need find command and arguments
