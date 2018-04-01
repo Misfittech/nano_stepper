@@ -8,27 +8,12 @@ If you want to support the work on the firmware and hardware consider buying har
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=4JAEK4G24W2U4)
 
 # How to Install 
-[Hardware install](http://misfittech.net/blog/installing-the-nano-zero-stepper/)
- 
-[Arduino install](http://misfittech.net/blog/arduino-package-install/) for building firmware
- 
-[Further Details and to purchase Hardware](http://misfittech.net/product/nano-zero-stepper/)
- 
-# Getting Started
-### Calibration:
-   * Disconnect the drive pulleys and also disconnect or power off the controller before attempting to calibrate.  You may encounter some really weird calibration results by not doing this - like 180 degree calibration error.  We're aiming for something around 0.1 degrees here.  
-   * If you need to re-calibrate, reduce the max current back to its factory setting of 500 mA.  Higher value settings seem to make the calibration behave unexpectedly.  
+[Hardware install](http://misfittech.net/2016/11/29/installing-the-nano-zero-stepper/)
 
-### Wiring:
-   * Don't run motor power in the same bundle as the logic wires.  Running the higher voltage wires in close proximity to the lower voltage wires causes unwanted noise to be induced into the lower voltage circuit.  
-   * Connect power, ground, and enable wires along with the direction and step wires at a minimum.  Loading the circuit keeps the noise levels down and prevents unwanted signals on the dir and step pins as well as prevents turning off the motors inadvertently due to noise on the enable pin.  
-   * Use shielded cable for logic signal wires and ground the shield at the controller end only.  Grounding on both ends is bad.  Not grounding at all is bad.  Not using shielding is bad.  Really good discussion [here](http://control.com/thread/1373726311).  
+[Arduino install] (http://misfittech.net/2016/07/27/arduino_install/) for building firmware
 
-### Mechanical:
-   * Smart Steppers (read: closed loop in general) don't solve every problem.  You still need to check machine clearance!  For example, the smart stepper can't drive the x axis carriage through the debris containment wall.  Also, closed loop doesn't solve cable management issues.  Proper machine maintenance is still critical.  
+[Further Details and to purchase Hardware] (http://misfittech.net/product/nano-zero-stepper/)
 
-### Electrical:
-   * Don't forget about power supply ratings.  Running the additional components over an Arduino's USB connection, for example, just won't work.  Make sure everything is sufficiently powered.  For Arduino controllers:  it seems the voltage regulator on the Arduino limits the delivered amperage for higher voltages.  The highest amperage can be achieved with a 7v supply (1 full amp), but they aren't readily available.  7.5v supply are pretty cheap and available, which should be providing 800ma according to this [article](https://www.open-electronics.org/the-power-of-arduino-this-unknown/).  
 
 # Command List
 
