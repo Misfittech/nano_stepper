@@ -13,9 +13,9 @@ volatile int32_t stepsChanged=0;
 
 int32_t getSteps(void)
 {
-#ifndef USE_NEW_STEP
-	return 0;
-#endif
+//#ifndef USE_NEW_STEP
+//	return 0;
+//#endif
 	int32_t x;
 #ifdef USE_TC_STEP
 	int32_t y;
@@ -165,6 +165,7 @@ void stepPinSetup(void)
 
 #else
 	attachInterrupt(digitalPinToInterrupt(PIN_STEP_INPUT), stepInput, RISING);
+	NVIC_SetPriority(EIC_IRQn, 0); //set port A interrupt as highest priority
 #endif
 
 }

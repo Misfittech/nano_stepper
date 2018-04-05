@@ -488,6 +488,7 @@ void TC5_Handler()
 	if (TC5->COUNT16.INTFLAG.bit.OVF == 1)
 	{
 		int error=0;
+		interrupts(); //allow other interrupts
 
 		error=(stepperCtrl.processFeedback()); //handle the control loop
 		YELLOW_LED(error);
@@ -527,7 +528,7 @@ void validateAndInitNVMParams(void)
 
 	if (false == NVM->sPID.parametersVaild)
 	{
-		nvmWrite_sPID(0.9,0.0001, 0.01);
+		nvmWrite_sPID(0.4,0.01, 0.01);
 	}
 
 	if (false == NVM->pPID.parametersVaild)
@@ -732,7 +733,8 @@ void NZS::begin(void)
 	stepPinSetup(); //setup the step pin
 
 #ifdef PIN_ENABLE
-	attachInterrupt(digitalPinToInterrupt(PIN_ENABLE), enableInput, CHANGE);
+	//attachInterrupt(digitalPinToInterrupt(PIN_ENABLE), enableInput, CHANGE);
+	NVIC_SetPriority(EIC_IRQn, 0); //set port A interrupt as highest priority
 #else
 	attachInterrupt(digitalPinToInterrupt(PIN_ERROR), enableInput, CHANGE);
 #endif

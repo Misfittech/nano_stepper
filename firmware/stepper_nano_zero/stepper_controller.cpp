@@ -858,7 +858,14 @@ int64_t StepperCtrl::getDesiredLocation(void)
 }
 
 
-
+//int32_t StepperCtrl::getSteps(void)
+//{
+//	int32_t ret;
+//	bool state=enterCriticalSection();
+//	ret=numSteps;
+//	exitCriticalSection(state);
+//	return ret;
+//}
 
 void StepperCtrl::moveToAbsAngle(int32_t a)
 {
@@ -1542,14 +1549,14 @@ bool StepperCtrl::processFeedback(void)
 	static int64_t mean=0;;
 
 	us=micros();
-	steps=getSteps();
-	if (steps>0)
-	{
-		requestStep(1, (uint16_t)steps);
-	}else
-	{
-		requestStep(0, (uint16_t)(-steps));
-	}
+//	steps=getSteps();
+//	if (steps>0)
+//	{
+//		requestStep(1, (uint16_t)steps);
+//	}else
+//	{
+//		requestStep(0, (uint16_t)(-steps));
+//	}
 
 	desiredLoc=getDesiredLocation();
 

@@ -9,6 +9,7 @@
 #include "ftoa.h"
 #include "board.h"
 #include "eeprom.h"
+#include "steppin.h"
 
 extern int32_t dataEnabled;
 
@@ -82,6 +83,7 @@ CMD_STR(home, "moves the motor until home switch (enable pin) is pulled low. exa
 CMD_STR(pinread, "reads pins as binary (bit 0-step, bit 1 - Dir, bit 2 - Enable, bit 3 - Error, bit 4 - A3, bit 5- TX, bit 6 - RX")
 CMD_STR(errorpin, "Sets the logic level of error pin")
 CMD_STR(geterror, "gets current error")
+CMD_STR(getsteps, "returns number of steps seen")
 //List of supported commands
 sCommand Cmds[] =
 {
@@ -138,9 +140,18 @@ sCommand Cmds[] =
 		COMMAND(pinread),
 		COMMAND(errorpin),
 		COMMAND(geterror),
+		COMMAND(getsteps),
 		{"",0,""}, //End of list signal
 };
 
+static int getsteps_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	int32_t s;
+	s=getSteps();
+//	s=(int32_t)stepperCtrl.getSteps();
+	CommandPrintf(ptrUart,"steps %" PRIi32 "\n\r",s);
+	return 0;
+}
 static int geterror_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	float f;

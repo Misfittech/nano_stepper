@@ -139,6 +139,7 @@ class StepperCtrl
 		uint16_t getStartupEncoder(void) {return startUpEncoder;}
 		int32_t getLocation(Location_t *ptrLoc);
 
+		//int32_t getSteps(void);
 		Angle getEncoderAngle(void);
 
 		void setAngle(int64_t loc);
