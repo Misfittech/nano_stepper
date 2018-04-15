@@ -22,12 +22,19 @@
 //#define NEMA_23_10A_HW
 
 //uncomment the following if the board uses the A5995 driver (NEMA 23 3.2A boards)
-#define A5995_DRIVER
+//#define A5995_DRIVER
 
 //The March 21 2017 NEMA 17 Smart Stepper has changed some pin outs
 // A1 was changed to read motor voltage, hence SW4 is now using D4
 // comment out this next line if using the older hardware
-//#define NEMA17_SMART_STEPPER_3_21_2017
+#define NEMA17_SMART_STEPPER_3_21_2017
+
+
+#ifdef A5995_DRIVER
+#ifdef NEMA17_SMART_STEPPER_3_21_2017
+#error "Only NEMA17_SMART_STEPPER_3_21_2017 or A5595_DRIVER may be defined"
+#endif
+#endif
 
 #define NZS_FAST_CAL // define this to use 32k of flash for fast calibration table
 #define NZS_FAST_SINE //uses 2048 extra bytes to implement faster sine tables
@@ -44,7 +51,7 @@
 //#define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
 //as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.33" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.34" //this is what prints on LCD during splash screen
 
 //Define this to allow command out serial port, else hardware serial is debug log
 //#define CMD_SERIAL_PORT
@@ -141,6 +148,7 @@
  *  0.31  - Added reading enable pin on during main loop
  *  0.32  - Fixed issue where steps were not being counted correctly
  *  0.33  - changed sPID parameters back to 0.9 0.0001 0.01
+ *  0.34  - Added board type to the splash screen
  */
 
 
