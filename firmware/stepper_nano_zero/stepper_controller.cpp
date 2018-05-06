@@ -978,7 +978,7 @@ bool StepperCtrl::vpidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t
 	static int32_t lastError=0;
 	static int64_t Iterm=0;
 	int64_t y,z;
-	int32_t v,dy;
+	int64_t v,dy;
 	int64_t u;
 
 	//get the current location
@@ -987,7 +987,8 @@ bool StepperCtrl::vpidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t
 	v=y-lastY;
 
 	//add in phase prediction
-	z=y+calculatePhasePrediction(currentLoc);
+	y=y+calculatePhasePrediction(currentLoc);
+	z=y;
 
 
 	lastY=y;
@@ -997,7 +998,7 @@ bool StepperCtrl::vpidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t
 
 	if (enableFeedback) //if ((micros()-lastCall)>(updateRate/10))
 	{
-		int32_t error,U;
+		int64_t error,U;
 		error = velocity-v;
 
 

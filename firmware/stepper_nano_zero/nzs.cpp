@@ -659,11 +659,12 @@ void NZS::begin(void)
 	LOG("Testing LCD");
 	Lcd.begin(&stepperCtrl);
 
-#if A5995_DRIVER
+#ifdef A5995_DRIVER
 	Lcd.lcdShow("MisfitTech","NEMA 23", VERSION);
 #else
 	Lcd.lcdShow("MisfitTech","NEMA 17", VERSION);
 #endif
+
 #endif
 
 	LOG("command init!");

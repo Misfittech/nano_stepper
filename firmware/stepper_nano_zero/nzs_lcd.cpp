@@ -98,7 +98,7 @@ void NZS_LCD::showSplash(void)
 	{
 		return;
 	}
-#if A5995_DRIVER
+#ifdef A5995_DRIVER
 	lcdShow("MisfitTech","NEMA 23", VERSION);
 #else
 	lcdShow("MisfitTech","NEMA 17", VERSION);
