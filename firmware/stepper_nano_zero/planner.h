@@ -27,7 +27,7 @@
 typedef enum {
 	PLANNER_NONE =0,
 	PLANNER_CV =1, //constant velocity
-	//PLANNER_CA =2, //constant accleration
+	PLANNER_CA =2, //constant accleration
 	//PLANNER_S_CURVE =3, //s-curve move
 } PlannerMode;
 class Planner
@@ -40,10 +40,13 @@ class Planner
 		volatile float startAngle;
 		volatile float currentSetAngle;
 		volatile float tickIncrement;
+		volatile float currentVelocity;
+                volatile float maxVelocity;
 
 	public:
 		void begin(StepperCtrl *ptrStepper);
 		bool moveConstantVelocity(float finalAngle, float rpm); //moves to the final location at a constant RPM
+		bool moveConstantAccel(float finalAngle, float maxrpm); //moves to the final location at a constant RPM
 		void tick(void); //this is called on regulat tick interval
 		void stop(void);
 		bool done(void) {return currentMode==PLANNER_NONE;}

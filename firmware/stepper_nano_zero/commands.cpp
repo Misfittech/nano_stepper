@@ -4,7 +4,7 @@
 #include "stepper_controller.h"
 #include <stdlib.h>
 #include "nonvolatile.h"
-#include "reset.h"
+#include "Reset.h"
 #include "nzs.h"
 #include "ftoa.h"
 #include "board.h"
@@ -62,6 +62,7 @@ CMD_STR(stepsperrotation, "gets/set the motor steps per rotation, should only be
 //CMD_STR(motorparams, "with no arguments read parameters, will set with arguments");
 CMD_STR(boot, "Enters the bootloader");
 CMD_STR(move, "moves encoder to absolute angle in degrees 'move 400.1'");
+CMD_STR(moveCA, "constant Accel move to a absolute angles 'move pos maxrpm'");
 //CMD_STR(printdata, "prints last n error terms");
 CMD_STR(velocity, "gets/set velocity in RPMs");
 CMD_STR(factoryreset, "resets board to factory defaults");
@@ -119,6 +120,7 @@ sCommand Cmds[] =
 		//COMMAND(motorparams),
 		COMMAND(boot),
 		COMMAND(move),
+		COMMAND(moveCA),
 		//COMMAND(printdata),
 		COMMAND(velocity),
 		COMMAND(factoryreset),
@@ -1054,6 +1056,28 @@ static int move_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 	return 0;
 }
 
+static int moveCA_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	int32_t x,ma;
+	//CommandPrintf(ptrUart, "Move %d",argc);
+
+	if (2 == argc)
+	{
+		float f,maxrpm,a,y;
+		float pos,dx;
+
+		f=atof(argv[0]);
+		maxrpm=atof(argv[1]);
+		//		if (f>1.8)
+		//			f=1.8;
+		//		if (f<-1.8)
+		//			f=-1.8;
+
+		SmartPlanner.moveConstantAccel(f,maxrpm);
+	}
+
+	return 0;
+}
 static int boot_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	initiateReset(250);
@@ -1532,3 +1556,4 @@ int commandsProcess(void)
 #endif
 	return CommandProcess(&UsbUart,Cmds,' ',COMMANDS_PROMPT);
 }
+

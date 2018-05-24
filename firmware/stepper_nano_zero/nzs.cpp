@@ -664,7 +664,6 @@ void NZS::begin(void)
 #else
 	Lcd.lcdShow("MisfitTech","NEMA 17", VERSION);
 #endif
-
 #endif
 
 	LOG("command init!");
