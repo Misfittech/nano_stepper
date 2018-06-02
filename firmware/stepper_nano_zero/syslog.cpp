@@ -14,6 +14,7 @@
  *********************************************************************/
 #include "syslog.h"
 #include <Arduino.h>
+#include "board.h"
 
 
 #define ANSI_WHITE 		"\033[37m"
@@ -36,6 +37,7 @@
 Uart *ptrSerial=NULL;
 eLogLevel SyslogLevelToWrite;
 
+bool DebugUART=false;
 static char buffer[SYSLOG_BUFFER_SIZE];
 static unsigned int BufIndex=0;
 
@@ -57,6 +59,10 @@ int SysLogIsEnabled(void)
 {
 	return SysLog_Enabled;
 }
+void SysLogDebug(bool x)
+{
+	DebugUART=x;
+}
 
 void SysLogPuts(const char *ptrStr)
 {
@@ -74,6 +80,10 @@ void SysLogPuts(const char *ptrStr)
 	} else
 	{
 		ptrSerial->write(ptrStr);
+	}
+	if (DebugUART)
+	{
+		SerialUSB.write(ptrStr);
 	}
 }
 

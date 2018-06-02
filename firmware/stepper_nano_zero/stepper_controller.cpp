@@ -777,6 +777,15 @@ void StepperCtrl::feedback(bool enable)
 	}
 }
 
+
+void StepperCtrl::updateSteps(int64_t steps)
+{
+	bool state=TC5_ISR_Enabled;
+	disableTCInterrupts();
+	numSteps+=steps;
+	if (state) enableTCInterrupts();
+}
+
 void StepperCtrl::updateStep(int dir, uint16_t steps)
 {
 	bool state=TC5_ISR_Enabled;

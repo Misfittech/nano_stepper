@@ -190,6 +190,8 @@ int SysLogDisable(void);
 int SysLogEnable(void);
 int SysLogIsEnabled(void);
 
+void SysLogDebug(bool x);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

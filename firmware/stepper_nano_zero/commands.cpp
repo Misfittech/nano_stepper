@@ -84,6 +84,7 @@ CMD_STR(pinread, "reads pins as binary (bit 0-step, bit 1 - Dir, bit 2 - Enable,
 CMD_STR(errorpin, "Sets the logic level of error pin")
 CMD_STR(geterror, "gets current error")
 CMD_STR(getsteps, "returns number of steps seen")
+CMD_STR(debug, "enables debug commands out USB")
 //List of supported commands
 sCommand Cmds[] =
 {
@@ -141,13 +142,24 @@ sCommand Cmds[] =
 		COMMAND(errorpin),
 		COMMAND(geterror),
 		COMMAND(getsteps),
+		COMMAND(debug),
 		{"",0,""}, //End of list signal
 };
+
+static int debug_cmd(sCmdUart *ptrUart,int argc, char * argv[])
+{
+	uint32_t i;
+	if (argc>=1)
+	{
+		i=atol(argv[0]);
+		SysLogDebug(i);
+	}
+}
 
 static int getsteps_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 {
 	int32_t s;
-	s=getSteps();
+	s=(int32_t)getSteps();
 //	s=(int32_t)stepperCtrl.getSteps();
 	CommandPrintf(ptrUart,"steps %" PRIi32 "\n\r",s);
 	return 0;

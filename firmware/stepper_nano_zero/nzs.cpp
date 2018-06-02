@@ -485,10 +485,11 @@ static void enableInput(void)
 
 void TC5_Handler()
 {
+	interrupts(); //allow other interrupts
 	if (TC5->COUNT16.INTFLAG.bit.OVF == 1)
 	{
 		int error=0;
-		interrupts(); //allow other interrupts
+
 
 		error=(stepperCtrl.processFeedback()); //handle the control loop
 		YELLOW_LED(error);
@@ -817,6 +818,8 @@ void printLocation(void)
 void NZS::loop(void)
 {
 	eepromData_t eepromData;
+	static int64_t lastSteps=0;
+	int64_t x;
 
 	//   if (dataEnabled==0)
 	//   {
@@ -827,6 +830,11 @@ void NZS::loop(void)
 	// this is also done as an edge interrupt but does not always see
 	// to trigger the ISR.
 	enableInput();
+#ifdef USE_TC_STEP
+	x=getSteps()-lastSteps;
+	stepperCtrl.updateSteps(x);
+	lastSteps+=x;
+#endif
 	if (enableState != stepperCtrl.getEnable())
 	{
 		stepperCtrl.enable(enableState);

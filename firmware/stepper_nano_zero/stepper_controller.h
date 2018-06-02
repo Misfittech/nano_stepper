@@ -168,6 +168,7 @@ class StepperCtrl
 
 		feedbackCtrl_t getControlMode(void) { return systemParams.controllerMode;};
 
+		void updateSteps(int64_t steps);
 		void requestStep(int dir, uint16_t steps); //requests a step, if feedback controller is off motor does not move
 
 		void feedback(bool enable);

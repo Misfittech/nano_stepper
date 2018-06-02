@@ -84,6 +84,7 @@ void TC3_Init(void)
 
 void TC3_Handler(void)
 {
+	interrupts(); //allow other interrupts
 	//do the planner tick
 	SmartPlanner.tick();
 	//SerialUSB.println('x');
