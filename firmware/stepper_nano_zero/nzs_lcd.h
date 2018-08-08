@@ -44,7 +44,7 @@ typedef struct {
 
 
 
-class NZS_LCD
+class LCD
 {
 	private:
 		bool displayEnabled;

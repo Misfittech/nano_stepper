@@ -20,7 +20,7 @@
 
 
 #ifndef DISABLE_LCD
-void NZS_LCD::begin(StepperCtrl *ptrsCtrl)
+void LCD::begin(StepperCtrl *ptrsCtrl)
 {
 #ifndef MECHADUINO_HARDWARE
 	pinMode(PIN_SW1, INPUT_PULLUP);
@@ -72,7 +72,7 @@ void NZS_LCD::begin(StepperCtrl *ptrsCtrl)
 }
 
 
-void __attribute__ ((optimize("Ofast"))) NZS_LCD::lcdShow(const char *line1, const char *line2,const char *line3)
+void __attribute__ ((optimize("Ofast"))) LCD::lcdShow(const char *line1, const char *line2,const char *line3)
 {
 
 	if (false == displayEnabled)
@@ -92,7 +92,7 @@ void __attribute__ ((optimize("Ofast"))) NZS_LCD::lcdShow(const char *line1, con
 
 }
 
-void NZS_LCD::showSplash(void)
+void LCD::showSplash(void)
 {
 	if (false == displayEnabled)
 	{
@@ -106,7 +106,7 @@ void NZS_LCD::showSplash(void)
 }
 
 
-void NZS_LCD::setMenu(menuItem_t *pMenu)
+void LCD::setMenu(menuItem_t *pMenu)
 {
 	if (false == displayEnabled)
 	{
@@ -117,7 +117,7 @@ void NZS_LCD::setMenu(menuItem_t *pMenu)
 }
 
 
-void NZS_LCD::showOptions(void)
+void LCD::showOptions(void)
 {
 	int32_t i,j;
 	char str[3][26]={0};
@@ -147,7 +147,7 @@ void NZS_LCD::showOptions(void)
 }
 
 
-void __attribute__ ((optimize("Ofast"))) NZS_LCD::showMenu(void)
+void __attribute__ ((optimize("Ofast"))) LCD::showMenu(void)
 {
 	int32_t i,j;
 	char str[3][26]={0};
@@ -190,7 +190,7 @@ void __attribute__ ((optimize("Ofast"))) NZS_LCD::showMenu(void)
 }
 
 
-void __attribute__ ((optimize("Ofast"))) NZS_LCD::updateMenu(void)
+void __attribute__ ((optimize("Ofast"))) LCD::updateMenu(void)
 {
 	if (false == displayEnabled)
 	{
@@ -283,13 +283,13 @@ void __attribute__ ((optimize("Ofast"))) NZS_LCD::updateMenu(void)
 	}
 }
 
-void NZS_LCD::forceMenuActive(void)
+void LCD::forceMenuActive(void)
 {
 
 	menuActive=true;
 }
 
-void __attribute__((optimize("Ofast")))NZS_LCD::process(void)
+void __attribute__((optimize("Ofast")))LCD::process(void)
 {
 	if (false == displayEnabled)
 	{
@@ -452,7 +452,7 @@ void StepperCtrl::menu(void)
 
  */
 
-void NZS_LCD::updateLCD(void)
+void LCD::updateLCD(void)
 {
 	if (false == displayEnabled)
 	{

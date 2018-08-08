@@ -347,7 +347,7 @@ static int eepromsetloc_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 
 	x=(uint32_t)PowerupEEPROM.encoderAngle-(uint32_t)stepperCtrl.getEncoderAngle();
 
-	deg=PowerupEEPROM.angle+x;
+	deg=PowerupEEPROM.angle-x;
 
 	stepperCtrl.setAngle(deg);
 	return 0;

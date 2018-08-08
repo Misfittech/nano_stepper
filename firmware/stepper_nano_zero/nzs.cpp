@@ -31,7 +31,7 @@ volatile bool enableState=true;
 int32_t dataEnabled=0;
 
 StepperCtrl stepperCtrl;
-NZS_LCD Lcd;
+LCD Lcd;
 
 int menuCalibrate(int argc, char *argv[])
 {
