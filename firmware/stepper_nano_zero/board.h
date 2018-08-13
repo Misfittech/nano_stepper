@@ -51,7 +51,7 @@
 //#define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
 //as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.36" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.37" //this is what prints on LCD during splash screen
 
 //Define this to allow command out serial port, else hardware serial is debug log
 //#define CMD_SERIAL_PORT
@@ -153,6 +153,7 @@
  *       - at over 125khz, however the dir pin has ~8us setup time due to interrupt latency.
  *       - Added debug command to allow debug messages out the USB serial port
  *  0.36 - eeprom set location math was wrong.
+ *  0.37 - fixed bug where the motor would pause periodically do the the TC4 counter.
  */
 
 

@@ -1559,6 +1559,15 @@ bool StepperCtrl::processFeedback(void)
 	static int64_t mean=0;;
 
 	us=micros();
+
+#ifdef USE_TC_STEP
+	static int64_t lastSteps;
+	int64_t x;
+	x=getSteps()-lastSteps;
+	updateSteps(x);
+	lastSteps+=x;
+#endif
+
 //	steps=getSteps();
 //	if (steps>0)
 //	{

@@ -6,7 +6,7 @@
 extern StepperCtrl stepperCtrl;
 
 volatile int32_t stepsChanged=0;
-volatile int64_t stepsHigh=0;
+volatile int64_t steps=0;
 #define WAIT_TC32_REGS_SYNC(x) while(x->COUNT16.STATUS.bit.SYNCBUSY);
 
 #if (PIN_STEP_INPUT != 0)
@@ -16,43 +16,38 @@ volatile int64_t stepsHigh=0;
 
 void TC4_Handler()
 {
-	if (TC4->COUNT16.INTFLAG.bit.OVF == 1)
-	{
-		RED_LED(true);
-		if (TC4->COUNT16.CTRLBSET.bit.DIR)
-		{
-			//we are counting up
-			stepsHigh--;
-		} else
-		{
-			stepsHigh++;
-		}
-		TC4->COUNT16.INTFLAG.bit.OVF = 1;    // writing a one clears the flag ovf flag
-	}
+//	if (TC4->COUNT16.INTFLAG.bit.OVF == 1)
+//	{
+//		TC4->COUNT16.INTFLAG.bit.OVF = 1;    // writing a one clears the flag ovf flag
+//		RED_LED(true);
+//		if (TC4->COUNT16.CTRLBSET.bit.DIR)
+//		{
+//			//we are counting up
+//			stepsHigh-=1ul<<16;
+//		} else
+//		{
+//			stepsHigh+=1ul<<16;
+//		}
+//
+//	}
 }
 
 //this function can not be called in interrupt context as the overflow interrupt for tC4 needs to run.
 int64_t getSteps(void)
 {
+
 //#ifndef USE_NEW_STEP
 //	return 0;
 //#endif
 	int64_t x;
 #ifdef USE_TC_STEP
-	x=stepsHigh;
-	uint16_t y=TC4->COUNT16.COUNT.reg;
+	uint16_t y;
+	static uint16_t lasty=0;
 
-	//if the msb changed we had an overflow
-	while( (y ^ TC4->COUNT16.COUNT.reg) & (1ul<<15))
-	{
-		x=stepsHigh;
-		y=TC4->COUNT16.COUNT.reg;
-	}
-	int64_t ret;
-	ret=((int64_t)x * 1ul<<16) | (y & 0x0FFFFul);
-
-	LOG("y is %d",y);
-	return ret;
+	y=TC4->COUNT16.COUNT.reg;
+	steps += int16_t(y-lasty);
+	lasty=y;
+	return steps;
 
 #else
 	EIC->INTENCLR.reg = EIC_INTENCLR_EXTINT11;
@@ -66,6 +61,7 @@ int64_t getSteps(void)
 static void stepInput(void)
 {
 	static int dir;
+
 	//read our direction pin
 	dir = digitalRead(PIN_DIR_INPUT);
 
@@ -157,12 +153,12 @@ void setupStepEvent(void)
 
 	TC4->COUNT16.COUNT.reg=0;
 	WAIT_TC32_REGS_SYNC(TC4)
-
-	TC4->COUNT16.INTENSET.bit.OVF = 1; //enable over/under flow interrupt
-	//setup the TC overflow/underflow interrupt
-	NVIC_SetPriority(TC4_IRQn, 0);
-	// Enable InterruptVector
-	NVIC_EnableIRQ(TC4_IRQn);
+//
+//	TC4->COUNT16.INTENSET.bit.OVF = 1; //enable over/under flow interrupt
+//	//setup the TC overflow/underflow interrupt
+//	NVIC_SetPriority(TC4_IRQn, 0);
+//	// Enable InterruptVector
+//	NVIC_EnableIRQ(TC4_IRQn);
 
 
 	// Enable TC

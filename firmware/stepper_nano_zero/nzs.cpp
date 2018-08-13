@@ -485,6 +485,9 @@ static void enableInput(void)
 
 void TC5_Handler()
 {
+//	static bool led=false;
+//	YELLOW_LED(led);
+//	led=!led;
 	interrupts(); //allow other interrupts
 	if (TC5->COUNT16.INTFLAG.bit.OVF == 1)
 	{
@@ -761,7 +764,7 @@ void printLocation(void)
 
 	if (dataEnabled==0)
 	{
-		RED_LED(false);
+		//RED_LED(false);
 		return;
 	}
 
@@ -771,7 +774,7 @@ void printLocation(void)
 	n=stepperCtrl.getLocation(&loc);
 	if (n==-1)
 	{
-		RED_LED(false);
+		//RED_LED(false);
 		return;
 	}
 
@@ -804,13 +807,13 @@ void printLocation(void)
 	//   }
 	//   SerialUSB.write(buf,strlen(buf));
 
-	if (n<=0)
-	{
-		RED_LED(false);
-	}else
-	{
-		RED_LED(true);
-	}
+//	if (n<=0)
+//	{
+//		RED_LED(false);
+//	}else
+//	{
+//		RED_LED(true);
+//	}
 
 	return;
 }
@@ -818,8 +821,7 @@ void printLocation(void)
 void NZS::loop(void)
 {
 	eepromData_t eepromData;
-	static int64_t lastSteps=0;
-	int64_t x;
+
 
 	//   if (dataEnabled==0)
 	//   {
@@ -830,11 +832,7 @@ void NZS::loop(void)
 	// this is also done as an edge interrupt but does not always see
 	// to trigger the ISR.
 	enableInput();
-#ifdef USE_TC_STEP
-	x=getSteps()-lastSteps;
-	stepperCtrl.updateSteps(x);
-	lastSteps+=x;
-#endif
+
 	if (enableState != stepperCtrl.getEnable())
 	{
 		stepperCtrl.enable(enableState);
