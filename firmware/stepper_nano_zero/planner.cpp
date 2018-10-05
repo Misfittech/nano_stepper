@@ -131,6 +131,40 @@ void Planner::tick(void)
 		}
 	}
 
+	if (PLANNER_CA == currentMode)
+	{
+//		SerialUSB.println(currentSetAngle);
+//		SerialUSB.println(endAngle);
+//		SerialUSB.println(tickIncrement);
+//		SerialUSB.println(fabs(currentSetAngle-endAngle));
+//		SerialUSB.println(fabs(tickIncrement*2));
+//		SerialUSB.println();
+		int32_t x;
+                float t;
+		if (fabs(currentSetAngle-endAngle) >= 0.5)
+		{
+                        t = fabs((currentSetAngle-endAngle) / (startAngle-endAngle));
+		        if (t < 0.5)
+                        {
+                        currentVelocity=maxVelocity*t*2;
+                        }
+                        else
+                        {
+                        currentVelocity=2*maxVelocity-maxVelocity*t*2;
+                        }
+			currentSetAngle+=currentVelocity;
+			x=ANGLE_FROM_DEGREES(currentSetAngle);
+			ptrStepperCtrl->moveToAbsAngle(x);
+		}
+                else
+		{
+			//we are done, make sure we end at the right point
+			//SerialUSB.println("done");
+			x=ANGLE_FROM_DEGREES(endAngle);
+			ptrStepperCtrl->moveToAbsAngle(x);
+			currentMode=PLANNER_NONE;
+		}
+	}
 
 }
 
@@ -183,6 +217,51 @@ bool Planner::moveConstantVelocity(float finalAngle, float rpm)
 //		SerialUSB.println();
 
 	currentMode=PLANNER_CV;
+
+	exitTC3CriticalSection(state);
+	return true;
+}
+
+
+bool Planner::moveConstantAccel(float finalAngle, float maxrpm)
+{
+	bool state;
+	state = enterTC3CriticalSection();
+
+	//first determine if operation is in progress
+	if (PLANNER_NONE != currentMode)
+	{
+		//we are in operation return false
+		SerialUSB.println("planner operational");
+		exitTC3CriticalSection(state);
+		return false;
+	}
+
+	//get current posistion
+	startAngle = ANGLE_T0_DEGREES(ptrStepperCtrl->getCurrentAngle());
+
+	//deterime the max velocity
+        maxVelocity=369.0*fabs(maxrpm)/60/PLANNER_UPDATE_RATE_HZ;
+
+	//set the desired end angle
+	endAngle=finalAngle;
+
+	//set the current angle
+        currentSetAngle=startAngle+4;
+
+	if (startAngle>endAngle)
+	{
+		SerialUSB.println("reverse");
+		maxVelocity=-maxVelocity;
+	        currentSetAngle=startAngle-4;
+	}
+
+//	SerialUSB.println(currentSetAngle);
+//		SerialUSB.println(endAngle);
+//		SerialUSB.println(tickIncrement);
+//		SerialUSB.println();
+
+	currentMode=PLANNER_CA;
 
 	exitTC3CriticalSection(state);
 	return true;
