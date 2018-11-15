@@ -44,7 +44,7 @@ class Planner
 	public:
 		void begin(StepperCtrl *ptrStepper);
 		bool moveConstantVelocity(float finalAngle, float rpm); //moves to the final location at a constant RPM
-		void tick(void); //this is called on regulat tick interval
+		void tick(void); //this is called on regular tick interval
 		void stop(void);
 		bool done(void) {return currentMode==PLANNER_NONE;}
 };

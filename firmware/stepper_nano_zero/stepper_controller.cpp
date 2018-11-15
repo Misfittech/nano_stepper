@@ -999,7 +999,6 @@ bool StepperCtrl::vpidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t
 	y=y+calculatePhasePrediction(currentLoc);
 	z=y;
 
-
 	lastY=y;
 
 	v=v*NZS_CONTROL_LOOP_HZ;
@@ -1010,15 +1009,14 @@ bool StepperCtrl::vpidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t
 		int64_t error,U;
 		error = velocity-v;
 
-
 		Iterm += (vPID.Ki * error);
-		if (Iterm>(16*4096*CTRL_PID_SCALING *motorParams.currentMa))
+		if (Iterm>(16*4096*CTRL_PID_SCALING *(int64_t)motorParams.currentMa))
 		{
-			Iterm=(16*4096*CTRL_PID_SCALING *motorParams.currentMa);
+			Iterm=(16*4096*CTRL_PID_SCALING *(int64_t)motorParams.currentMa);
 		}
-		if (Iterm<-(16*4096*CTRL_PID_SCALING *motorParams.currentMa))
+		if (Iterm<-(16*4096*CTRL_PID_SCALING *(int64_t)motorParams.currentMa))
 		{
-			Iterm=-(16*4096*CTRL_PID_SCALING*motorParams.currentMa);
+			Iterm=-(16*4096*CTRL_PID_SCALING*(int64_t)motorParams.currentMa);
 		}
 
 		u=((vPID.Kp * error) + Iterm - (vPID.Kd *(lastError-error)));
@@ -1028,9 +1026,6 @@ bool StepperCtrl::vpidFeedback(int64_t desiredLoc, int64_t currentLoc, Control_t
 		{
 			U=motorParams.currentMa;
 		}
-
-
-
 
 		//when error is positive we need to move reverse direction
 		if (u>0)
