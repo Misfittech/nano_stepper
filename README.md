@@ -116,7 +116,5 @@ This command will take the current motor position and set it to absolute angle o
 All nano stepper related materials are released under the Creative Commons Attribution Share-Alike 4.0 License
 Much of the work is based on Mechaduino project:
 https://github.com/jcchurch13/Mechaduino-Firmware
-
-This firmware also runs on the Mechaduino hardware and has many improvements over stock Mechaduino firmware. 
-Note the Mechaduino 0.1 does have a few hardware issues that the firmware can not fix:
+The firmware is license has changed to GPL V3. If you want to release a closed source version of this product please contact MisfitTech.net for licensing details. 
 
