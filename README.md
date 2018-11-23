@@ -1,7 +1,7 @@
 # Smart Stepper (also known as the nano zero stepper)
 Firmware to turn a stepper motor into servo motor: see http://misfittech.net for hardware! 
 
-
+If you have a MKS Servo42, this firmware will not currently work on your hardware. MKS took this firmware but has not provided source back to the community. If you want to get the firmware to work with the servo42 let me know by using the donate button to support us adding the servo42. 
 
 If you want to support the work on the firmware and hardware consider buying hardware from www.misfittech.net or buying me a beer using the donation button. 
 
