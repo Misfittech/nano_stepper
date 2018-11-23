@@ -1,7 +1,7 @@
 # Smart Stepper (also known as the nano zero stepper)
 Firmware to turn a stepper motor into servo motor: see http://misfittech.net for hardware! 
 
-If you have a MKS Servo42, this firmware will not currently work on your hardware. MKS took this firmware but has not provided source back to the community. If you want to get the firmware to work with the servo42 let me know by using the donate button to support us adding the servo42. 
+If you have a MKS Servo42, this firmware will not currently work on your hardware. MKS has taken this firmware but has not provided source back and hardware designs back to the community. If you want MisfitTech to enable this firmware to work with the servo42 let us know by using the donate button adding a note to support the servo42, or contact us directly from our website.  
 
 If you want to support the work on the firmware and hardware consider buying hardware from www.misfittech.net or buying me a beer using the donation button. 
 
@@ -116,5 +116,6 @@ This command will take the current motor position and set it to absolute angle o
 All nano stepper related materials are released under the Creative Commons Attribution Share-Alike 4.0 License
 Much of the work is based on Mechaduino project:
 https://github.com/jcchurch13/Mechaduino-Firmware
-The firmware is license has changed to GPL V3. If you want to release a closed source version of this product please contact MisfitTech.net for licensing details. 
+
+One 11/23/2017 the firmware is license has been changed to GPL V3. If you want to release a closed source version of this product please contact MisfitTech.net for licensing details. 
 
