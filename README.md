@@ -113,9 +113,7 @@ If user issues a move command that takes a long time and wants to stop the move 
 This command will take the current motor position and set it to absolute angle of  zero. Note that if you are in the middle move it will take the position at the time of the command and use it, thus it is recommend a move be stopped or wait for completion before issuing the setzero. 
 
 ## License:
-All nano stepper related materials are released under the Creative Commons Attribution Share-Alike 4.0 License
-Much of the work is based on Mechaduino project:
-https://github.com/jcchurch13/Mechaduino-Firmware
-
-One 11/23/2017 the firmware is license has been changed to GPL V3. If you want to release a closed source version of this product please contact MisfitTech.net for licensing details. 
+The smart stepper related hardware is released under the Creative Commons Attribution Share-Alike 4.0 License as much of the work is based on Mechaduino project by J. Church. 
+ https://github.com/jcchurch13/Mechaduino-Firmware
+The firmware is licensed as GPL V3 for non-commercial use. If you want to release a closed source version of this product, please contact MisfitTech.net for licensing details.
 
