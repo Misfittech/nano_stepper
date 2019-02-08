@@ -1,19 +1,33 @@
 /**********************************************************************
- *      Author: tstern
- *
-	Copyright (C) 2018  MisfitTech,  All rights reserved.
+	Copyright (C) 2018  MisfitTech LLC,  All rights reserved.
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License.
+ 	MisfitTech uses a dual license model that allows the software to be used under
+	a standard GPL open source license, or a commercial license.  The standard GPL
+	license  requires that all software statically linked with MisfitTec Code is
+	also distributed under the same GPL V2 license terms.  Details of both license
+	options follow:
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+	- Open source licensing -
+	MisfitTech is a free download and may be used, modified, evaluated and
+	distributed without charge provided the user adheres to version two of the GNU
+	General Public License (GPL) and does not remove the copyright notice or this
+	text.  The GPL V2 text is available on the gnu.org web site
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	- Commercial licensing -
+	Businesses and individuals that for commercial or other reasons cannot comply
+	with the terms of the GPL V2 license must obtain a low cost commercial license
+	before incorporating MisfitTech code into proprietary software for distribution in
+	any form.  Commercial licenses can be purchased from www.misfittech.net
+	and do not require any source files to be changed.
+
+
+	This code is distributed in the hope that it will be useful.  You cannot
+	use MisfitTech's code unless you agree that you use the software 'as is'.
+	MisfitTech's code is provided WITHOUT ANY WARRANTY; without even the implied
+	warranties of NON-INFRINGEMENT, MERCHANTABILITY or FITNESS FOR A PARTICULAR
+	PURPOSE. MisfitTech LLC disclaims all conditions and terms, be they
+	implied, expressed, or statutory.
+
 
     Written by Trampas Stern for MisfitTech.
 
@@ -42,6 +56,10 @@
 // comment out this next line if using the older hardware
 #define NEMA17_SMART_STEPPER_3_21_2017
 
+//The MKS Servo42 uses the A1333_Encoder
+// Please uncomment this line and make sure the NEMA17_SMART_STEPPER_3_21_2017 is
+// uncommented for the Servo42
+//#define A1333_ENCODER
 
 #ifdef A5995_DRIVER
 #ifdef NEMA17_SMART_STEPPER_3_21_2017
@@ -64,7 +82,7 @@
 //#define ENABLE_PHASE_PREDICTION //this enables prediction of phase at high velocity to increase motor speed
 //as of FW0.11 it is considered development only
 
-#define VERSION "FW: 0.38" //this is what prints on LCD during splash screen
+#define VERSION "FW: 0.39" //this is what prints on LCD during splash screen
 
 //Define this to allow command out serial port, else hardware serial is debug log
 //#define CMD_SERIAL_PORT
@@ -168,6 +186,8 @@
  *  0.36 - eeprom set location math was wrong.
  *  0.37 - fixed bug where the motor would pause periodically do the the TC4 counter.
  *  0.38 - fixed bug in the velocity feedback mode.
+ *  0.39 - changed step count to TCC2, improved the dir pin setup/hold times
+ *  	 - added support for the MKS Servo42 (A1333 encoder)
  */
 
 
@@ -201,9 +221,9 @@ typedef enum {
 // ******** TIMER USAGE A4954 versions ************
 //TCC1 is used for DAC PWM to the A4954
 //TCC0 can be used as PWM for the input pins on the A4954
+//TCC2 is used for the step count
 //D0 step input could use TCC1 or TCC0 if not used
 //TC3 is used for planner tick
-//TC4 is used for step count
 //TC5 is use for timing the control loop
 
 // ******** TIMER USAGE NEMA23 10A versions ************
@@ -223,6 +243,9 @@ typedef enum {
 #define SerialUSB Serial
 #endif 
 
+#define PIN_TXD		(30)
+#define PIN_RXD		(31)
+
 #define PIN_STEP_INPUT  (0)
 #define PIN_DIR_INPUT   (1)
 
@@ -240,7 +263,13 @@ typedef enum {
 #ifdef NEMA17_SMART_STEPPER_3_21_2017
 #define PIN_SW1		(19)//analogInputToDigitalPin(PIN_A5))
 #define PIN_SW3		(14)//analogInputToDigitalPin(PIN_A0))
+
+#ifdef A1333_ENCODER //the MKS Servo42 uses A1 for this switch
+#define PIN_SW4		(15)//analogInputToDigitalPin(PIN_A1))
+#else
 #define PIN_SW4		(2)//D2
+#endif
+
 #define PIN_ENABLE	(10)
 #define PIN_ERROR	(3)
 
@@ -296,6 +325,7 @@ typedef enum {
 #define PIN_A5995_VREF1		(4) //PA08
 #define PIN_A5995_VREF2		(9) //PA07
 #define PIN_A5995_SLEEPn	(25) //RXLED
+
 
 #ifndef MECHADUINO_HARDWARE
 #define PIN_YELLOW_LED  (8)

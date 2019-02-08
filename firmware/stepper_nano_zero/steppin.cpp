@@ -28,29 +28,41 @@ extern StepperCtrl stepperCtrl;
 
 volatile int32_t stepsChanged=0;
 volatile int64_t steps=0;
-#define WAIT_TC32_REGS_SYNC(x) while(x->COUNT16.STATUS.bit.SYNCBUSY);
+
 
 #if (PIN_STEP_INPUT != 0)
 #error "this code only works with step pin being D0 (PA11, EXTINT11)"
 #endif
 
 
-void TC4_Handler()
+#define WAIT_TCC2_SYNC() while(TCC2->SYNCBUSY.reg)
+
+void checkDir(void)
 {
-//	if (TC4->COUNT16.INTFLAG.bit.OVF == 1)
-//	{
-//		TC4->COUNT16.INTFLAG.bit.OVF = 1;    // writing a one clears the flag ovf flag
-//		RED_LED(true);
-//		if (TC4->COUNT16.CTRLBSET.bit.DIR)
-//		{
-//			//we are counting up
-//			stepsHigh-=1ul<<16;
-//		} else
-//		{
-//			stepsHigh+=1ul<<16;
-//		}
-//
-//	}
+	int dir=1;
+	static int lastDir=-1;
+
+
+	if (CW_ROTATION == NVM->SystemParams.dirPinRotation)
+	{
+		dir=0; //reverse the rotation
+	}
+
+	if (lastDir != dir)
+	{
+		if (dir)
+		{
+			EIC->CONFIG[1].reg &= ~EIC_CONFIG_SENSE2_Msk;
+			EIC->CONFIG[1].reg |=  EIC_CONFIG_SENSE2_HIGH;
+
+		} else
+		{
+			EIC->CONFIG[1].reg &= ~EIC_CONFIG_SENSE2_Msk;
+			EIC->CONFIG[1].reg |=  EIC_CONFIG_SENSE2_LOW;
+		}
+		lastDir=dir;
+	}
+
 }
 
 //this function can not be called in interrupt context as the overflow interrupt for tC4 needs to run.
@@ -65,9 +77,16 @@ int64_t getSteps(void)
 	uint16_t y;
 	static uint16_t lasty=0;
 
-	y=TC4->COUNT16.COUNT.reg;
-	steps += int16_t(y-lasty);
+	TCC2->CTRLBSET.reg=TCC_CTRLBSET_CMD_READSYNC;
+	WAIT_TCC2_SYNC();
+
+
+	y=(uint16_t)(TCC2->COUNT.reg & 0x0FFFFul); //use only lowest 16bits
+	//LOG("count is %d",y);
+	steps += (int16_t)(y-lasty);
 	lasty=y;
+
+	checkDir();
 	return steps;
 
 #else
@@ -78,6 +97,10 @@ int64_t getSteps(void)
 	return x;
 #endif
 }
+
+
+
+
 //this function is called on the rising edge of a step from external device
 static void stepInput(void)
 {
@@ -119,6 +142,9 @@ void enableEIC(void)
 }
 
 
+
+
+
 void setupStepEvent(void)
 {
 	//we will set up the EIC to generate an even on rising edge of step pin
@@ -130,13 +156,22 @@ void setupStepEvent(void)
 	// Step pin is PA11, EXTINT11
 	pinPeripheral(PIN_STEP_INPUT, PIO_EXTINT);
 
+	//set up the direction pin PA10 to trigger external interrupt
+	pinPeripheral(PIN_DIR_INPUT, PIO_EXTINT); //EXTINT10
+
+
 	//***** setup EIC ******
 	EIC->EVCTRL.bit.EXTINTEO11=1; //enable event for EXTINT11
+	EIC->EVCTRL.bit.EXTINTEO10=1; //enable event for EXTINT10
 	//setup up external interurpt 11 to be rising edge triggered
-	EIC->CONFIG[1].reg |= EIC_CONFIG_SENSE3_RISE;
+	//setup up external interurpt 10 to be both edge triggered
+	EIC->CONFIG[1].reg |= EIC_CONFIG_SENSE3_RISE | EIC_CONFIG_SENSE2_HIGH;
 
-	//diable actually generating an interrupt, we only want event triggered
+	checkDir();
+
+	//disable actually generating an interrupt, we only want event triggered
 	EIC->INTENCLR.reg = EIC_INTENCLR_EXTINT11;
+	EIC->INTENCLR.reg = EIC_INTENCLR_EXTINT10;
 
 	//**** setup the event system ***
 	// Enable GCLK for EVSYS channel 0
@@ -144,72 +179,116 @@ void setupStepEvent(void)
 
 	GCLK->CLKCTRL.reg = (uint16_t) (GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(GCM_EVSYS_CHANNEL_0));
 	while (GCLK->STATUS.bit.SYNCBUSY);
+	GCLK->CLKCTRL.reg = (uint16_t) (GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(GCM_EVSYS_CHANNEL_1));
+	while (GCLK->STATUS.bit.SYNCBUSY);
+
+	//setup the step pin to trigger event 0 on the TCC2 (step)
 	EVSYS->CHANNEL.reg=EVSYS_CHANNEL_CHANNEL(0)
 								| EVSYS_CHANNEL_EDGSEL_RISING_EDGE
 								| EVSYS_CHANNEL_EVGEN(EVSYS_ID_GEN_EIC_EXTINT_11)
 								| EVSYS_CHANNEL_PATH_ASYNCHRONOUS;
 
 	EVSYS->USER.reg = 	EVSYS_USER_CHANNEL(1)
-								| EVSYS_USER_USER(EVSYS_ID_USER_TC4_EVU);
+								| EVSYS_USER_USER(EVSYS_ID_USER_TCC2_EV_0);
+
+	//setup the dir pin to trigger event 2 on the TCC2 (dir change)
+	EVSYS->CHANNEL.reg=EVSYS_CHANNEL_CHANNEL(1)
+								| EVSYS_CHANNEL_EDGSEL_BOTH_EDGES
+								| EVSYS_CHANNEL_EVGEN(EVSYS_ID_GEN_EIC_EXTINT_10)
+								| EVSYS_CHANNEL_PATH_ASYNCHRONOUS;
+
+	EVSYS->USER.reg = 	EVSYS_USER_CHANNEL(2)
+								| EVSYS_USER_USER(EVSYS_ID_USER_TCC2_EV_1);
 
 	//**** setup the Timer counter ******
-	PM->APBCMASK.reg |= PM_APBCMASK_TC4;
-	// Enable GCLK for TC4 and TC5 (timer counter input clock)
-	GCLK->CLKCTRL.reg = (uint16_t) (GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(GCM_TC4_TC5));
+	PM->APBCMASK.reg |= PM_APBCMASK_TCC2;
+
+	// Enable GCLK for TCC2 (timer counter input clock)
+	GCLK->CLKCTRL.reg = (uint16_t) (GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(GCM_TCC2_TC3));
 	while (GCLK->STATUS.bit.SYNCBUSY);
 
-	TC4->COUNT16.CTRLA.reg = TC_CTRLA_SWRST;  //reset TC4
-	WAIT_TC32_REGS_SYNC(TC4)
 
-	TC4->COUNT16.CTRLA.reg = TC_CTRLA_MODE_COUNT16    // Set Timer counter Mode to 16 bits
-	| TC_CTRLA_WAVEGEN_NFRQ  //normal counting mode (not using waveforms)
-	| TC_CTRLA_PRESCALER_DIV1; //count each pulse
-	WAIT_TC32_REGS_SYNC(TC4)
 
-	TC4->COUNT16.CTRLBCLR.reg=0xFF; //clear all values.
-	WAIT_TC32_REGS_SYNC(TC4)
+	TCC2->CTRLA.reg &= ~TCC_CTRLA_ENABLE;
+	WAIT_TCC2_SYNC();
 
-	TC4->COUNT16.EVCTRL.reg=TC_EVCTRL_TCEI | TC_EVCTRL_EVACT_COUNT; //enable event input and count
-	WAIT_TC32_REGS_SYNC(TC4)
+	TCC2->CTRLA.reg= TCC_CTRLA_SWRST;  //reset TCC2
+	WAIT_TCC2_SYNC();
+	while(TCC2->CTRLA.bit.SWRST ==1);
 
-	TC4->COUNT16.COUNT.reg=0;
-	WAIT_TC32_REGS_SYNC(TC4)
+
+	//TCC2->WAVE.reg = TCC_WAVE_WAVEGEN_NFRQ;
+	//WAIT_TCC2_SYNC();
+
+	TCC2->EVCTRL.reg=TCC_EVCTRL_EVACT0_COUNTEV | TCC_EVCTRL_TCEI0
+			| TCC_EVCTRL_EVACT1_DIR | TCC_EVCTRL_TCEI1;
+	WAIT_TCC2_SYNC();
+
+
+	TCC2->COUNT.reg=0;
+	WAIT_TCC2_SYNC();
+
+	//TCC2->CTRLBSET.bit.CMD=TCC_CTRLBSET_CMD_RETRIGGER;
+	//checkDirPin();
+	TCC2->CTRLBSET.bit.DIR=1;
+
+	WAIT_TCC2_SYNC();
+	TCC2->CTRLA.reg |=TCC_CTRLA_ENABLE;
+	WAIT_TCC2_SYNC();
+
+
+	//checkDirPin();
+
+//
+//	TC4->COUNT16.CTRLA.reg = TC_CTRLA_MODE_COUNT16    // Set Timer counter Mode to 16 bits
+//	| TC_CTRLA_WAVEGEN_NFRQ  //normal counting mode (not using waveforms)
+//	| TC_CTRLA_PRESCALER_DIV1; //count each pulse
+//	WAIT_TC32_REGS_SYNC(TC4)
+//
+//	TC4->COUNT16.CTRLBCLR.reg=0xFF; //clear all values.
+//	WAIT_TC32_REGS_SYNC(TC4)
+//
+//	TC4->COUNT16.EVCTRL.reg=TC_EVCTRL_TCEI | TC_EVCTRL_EVACT_COUNT; //enable event input and count
+//	WAIT_TC32_REGS_SYNC(TC4)
+//
+//	TC4->COUNT16.COUNT.reg=0;
+//	WAIT_TC32_REGS_SYNC(TC4)
 //
 //	TC4->COUNT16.INTENSET.bit.OVF = 1; //enable over/under flow interrupt
 //	//setup the TC overflow/underflow interrupt
 //	NVIC_SetPriority(TC4_IRQn, 0);
 //	// Enable InterruptVector
 //	NVIC_EnableIRQ(TC4_IRQn);
-
-
-	// Enable TC
-	TC4->COUNT16.CTRLA.reg |= TC_CTRLA_ENABLE;
-	WAIT_TC32_REGS_SYNC(TC4)
+//
+//
+//	// Enable TC
+//	TC4->COUNT16.CTRLA.reg |= TC_CTRLA_ENABLE;
+//	WAIT_TC32_REGS_SYNC(TC4)
 }
 
-static void dirChanged_ISR(void)
-{
-	int dir=0;
-	//read our direction pin
-	//dir = digitalRead(PIN_DIR_INPUT);
-	if ( (PORT->Group[g_APinDescription[PIN_DIR_INPUT].ulPort].IN.reg & (1ul << g_APinDescription[PIN_DIR_INPUT].ulPin)) != 0 )
-	{
-		dir=1;
-	}
-
-
-	if (CW_ROTATION == NVM->SystemParams.dirPinRotation)
-	{
-		dir=!dir; //reverse the rotation
-	}
-	if (dir)
-	{
-		TC4->COUNT16.CTRLBSET.bit.DIR=1;
-	} else
-	{
-		TC4->COUNT16.CTRLBCLR.bit.DIR=1;
-	}
-}
+//static void dirChanged_ISR(void)
+//{
+//	int dir=0;
+//	//read our direction pin
+//	//dir = digitalRead(PIN_DIR_INPUT);
+//	if ( (PORT->Group[g_APinDescription[PIN_DIR_INPUT].ulPort].IN.reg & (1ul << g_APinDescription[PIN_DIR_INPUT].ulPin)) != 0 )
+//	{
+//		dir=1;
+//	}
+//
+//
+//	if (CW_ROTATION == NVM->SystemParams.dirPinRotation)
+//	{
+//		dir=!dir; //reverse the rotation
+//	}
+//	if (dir)
+//	{
+//		TC4->COUNT16.CTRLBSET.bit.DIR=1;
+//	} else
+//	{
+//		TC4->COUNT16.CTRLBCLR.bit.DIR=1;
+//	}
+//}
 
 
 void stepPinSetup(void)
@@ -218,13 +297,13 @@ void stepPinSetup(void)
 
 #ifdef USE_TC_STEP
 
-	//setup the direction pin
-	dirChanged_ISR();
-
-	//attachInterrupt configures the EIC as highest priority interrupts.
-	attachInterrupt(digitalPinToInterrupt(PIN_DIR_INPUT), dirChanged_ISR, CHANGE);
+//	//setup the direction pin
+//	dirChanged_ISR();
+//
+//	//attachInterrupt configures the EIC as highest priority interrupts.
+//	attachInterrupt(digitalPinToInterrupt(PIN_DIR_INPUT), dirChanged_ISR, CHANGE);
 	setupStepEvent();
-	NVIC_SetPriority(EIC_IRQn, 1); //set port A interrupt as highest priority
+//	NVIC_SetPriority(EIC_IRQn, 1); //set port A interrupt as highest priority
 
 
 #else

@@ -1,19 +1,33 @@
 /**********************************************************************
- *      Author: tstern
- *
-	Copyright (C) 2018  MisfitTech,  All rights reserved.
+	Copyright (C) 2018  MisfitTech LLC,  All rights reserved.
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License.
+ 	MisfitTech uses a dual license model that allows the software to be used under
+	a standard GPL open source license, or a commercial license.  The standard GPL
+	license  requires that all software statically linked with MisfitTec Code is
+	also distributed under the same GPL V2 license terms.  Details of both license
+	options follow:
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+	- Open source licensing -
+	MisfitTech is a free download and may be used, modified, evaluated and
+	distributed without charge provided the user adheres to version two of the GNU
+	General Public License (GPL) and does not remove the copyright notice or this
+	text.  The GPL V2 text is available on the gnu.org web site
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	- Commercial licensing -
+	Businesses and individuals that for commercial or other reasons cannot comply
+	with the terms of the GPL V2 license must obtain a low cost commercial license
+	before incorporating MisfitTech code into proprietary software for distribution in
+	any form.  Commercial licenses can be purchased from www.misfittech.net
+	and do not require any source files to be changed.
+
+
+	This code is distributed in the hope that it will be useful.  You cannot
+	use MisfitTech's code unless you agree that you use the software 'as is'.
+	MisfitTech's code is provided WITHOUT ANY WARRANTY; without even the implied
+	warranties of NON-INFRINGEMENT, MERCHANTABILITY or FITNESS FOR A PARTICULAR
+	PURPOSE. MisfitTech LLC disclaims all conditions and terms, be they
+	implied, expressed, or statutory.
+
 
     Written by Trampas Stern for MisfitTech.
 
@@ -36,7 +50,7 @@ __attribute__((__aligned__(FLASH_ROW_SIZE))) const uint16_t NVM_flash[16767]={  
 #else
 __attribute__((__aligned__(FLASH_ROW_SIZE))) const uint16_t NVM_flash[256]={  //allocates 512 bytes
 #endif
-//35791,36134,36471,36788,37122,37463,37801,38118,38451,38791,39127,39447,39778,40121,40457,40783,41114,41459,41797,42120,42455,42801,43140,43465,43803,44151,44493,44818,45156,45506,45851,46178,46519,46869,47215,47542,47886,48236,48582,48910,49252,49605,49947,50272,50615,50963,51303,51631,51968,52316,52652,52974,53313,53654,53989,54307,54642,54980,55314,55630,55959,56299,56633,56946,57273,57615,57948,58259,58585,58926,59261,59575,59901,60242,60574,60888,61217,61558,61892,62208,62538,62878,63213,63528,63855,64195,64526,64844,65169,65507,304,618,941,1278,1609,1918,2238,2574,2901,3208,3529,3860,4188,4491,4810,5143,5463,5770,6089,6415,6737,7044,7359,7688,8009,8313,8629,8955,9276,9583,9898,10223,10544,10849,11163,11485,11806,12108,12423,12746,13066,13368,13680,14005,14323,14621,14935,15259,15576,15876,16189,16513,16827,17133,17445,17771,18088,18393,18709,19031,19352,19656,19976,20304,20627,20933,21254,21585,21908,22219,22540,22873,23200,23510,23835,24172,24502,24813,25141,25479,25810,26125,26454,26797,27130,27447,27777,28122,28456,28777,29110,29456,29792,30114,30449,30790,31131,31453,31786,32131,32471,32793,33127,33472,33809,34129,34462,34806,35143,35464,
+//59962,60291,60621,60949,61267,61596,61924,62252,62567,62897,63223,63548,63865,64192,64518,64842,65157,65482,274,600,917,1247,1573,1902,2225,2560,2892,3225,3550,3888,4226,4564,4893,5234,5575,5914,6246,6587,6930,7267,7596,7937,8275,8611,8936,9274,9606,9940,10262,10594,10925,11253,11572,11902,12228,12553,12870,13195,13518,13844,14159,14480,14801,15123,15435,15756,16078,16398,16708,17031,17350,17675,17988,18312,18640,18965,19282,19609,19943,20271,20593,20924,21257,21589,21914,22250,22586,22920,23241,23578,23912,24245,24570,24902,25236,25567,25887,26219,26549,26877,27196,27524,27851,28178,28496,28823,29145,29470,29788,30112,30436,30759,31074,31396,31720,32041,32355,32681,33003,33329,33644,33971,34297,34625,34947,35278,35610,35941,36271,36605,36944,37280,37609,37948,38287,38625,38960,39300,39640,39977,40308,40651,40988,41325,41653,41989,42326,42655,42982,43316,43646,43976,44294,44626,44951,45277,45598,45924,46250,46572,46888,47212,47536,47856,48167,48490,48813,49133,49447,49769,50091,50412,50726,51051,51377,51701,52022,52353,52681,53013,53334,53668,53999,54334,54661,54997,55331,55665,55991,56330,56664,57001,57326,57662,57994,58327,58650,58981,59313,59641,
 
 			0xFFFF
 };

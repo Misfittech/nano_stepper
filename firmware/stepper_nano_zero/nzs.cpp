@@ -31,6 +31,7 @@
 #include "angle.h"
 #include "eeprom.h"
 #include "steppin.h"
+#include "wiring_private.h"
 
 #pragma GCC push_options
 #pragma GCC optimize ("-Ofast")
@@ -637,7 +638,9 @@ void NZS::begin(void)
 
 
 #ifndef CMD_SERIAL_PORT
-	SysLogInit(&Serial5,LOG_DEBUG); //use SWO for the sysloging
+	SysLogInit(&Serial5,LOG_DEBUG);
+	pinPeripheral(PIN_TXD, PIO_SERCOM_ALT);
+	pinPeripheral(PIN_RXD, PIO_SERCOM_ALT);
 #else
 	SysLogInit(NULL, LOG_WARNING);
 #endif

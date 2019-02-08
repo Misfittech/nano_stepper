@@ -1,5 +1,5 @@
 /**********************************************************************
-	Copyright (C) 2018  MisfitTech LLC,  All rights reserved.
+	Copyright (C) 2019  MisfitTech LLC,  All rights reserved.
 
  	MisfitTech uses a dual license model that allows the software to be used under
 	a standard GPL open source license, or a commercial license.  The standard GPL
@@ -35,14 +35,25 @@
     please support MisfitTech and open-source hardware by purchasing
 	products from MisfitTech, www.misifittech.net!
  *********************************************************************/
+#ifndef A1333_H_
+#define A1333_H_
 
-#ifndef FTOA_H_
-#define FTOA_H_
+#include <Arduino.h>
 
-#define MAX_MANTISA (1000)
+#define A1333_DEGREES_PER_BIT  (360.0/(float)(0x7FFF))
 
-int ftoa (float x, char *str, char  prec, char format);
+class A1333 {
+  private:
+    int chipSelectPin;
+  public:
+    boolean begin(int csPin);
+    int16_t readEncoderAngle(void);
+    int16_t readAddress(uint16_t addr);
+    int16_t readEncoderAnglePipeLineRead(void);
+    void diagnostics(char *ptrStr) {return;};
+    bool getError(void) {return false;};
+};
 
 
 
-#endif /* FTOA_H_ */
+#endif /* A1333_H_ */

@@ -37,8 +37,6 @@ volatile bool TC5_ISR_Enabled=false;
 
 void setupTCInterrupts() {
 
-
-
 	// Enable GCLK for TC4 and TC5 (timer counter input clock)
 	GCLK->CLKCTRL.reg = (uint16_t) (GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(GCM_TC4_TC5));
 	while (GCLK->STATUS.bit.SYNCBUSY);

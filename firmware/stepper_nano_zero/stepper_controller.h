@@ -27,6 +27,7 @@
 #include "syslog.h"
 #include "board.h"
 #include "as5047d.h"
+#include "A1333.h"
 #include "calibration.h"
 #include "A4954.h"
 #include "A5995.h"
@@ -52,7 +53,7 @@ typedef struct {
 } PID_t;
 
 
- typedef __attribute__((packed, aligned(4))) struct {
+ typedef __attribute__((aligned(4))) struct {
       int32_t microSecs;
       int32_t desiredLoc;
       int32_t actualLoc;
@@ -77,7 +78,13 @@ class StepperCtrl
 {
 	private:
 		volatile bool enableFeedback; //true if we are using PID control algorithm
+
+#ifdef A1333_ENCODER
+		A1333 encoder;
+#else
 		AS5047D encoder;
+#endif
+
 #ifdef NEMA_23_10A_HW
 		FetDriver stepperDriver;
 #else
