@@ -41,7 +41,7 @@
 #include "stepper_controller.h"
 #include <stdlib.h>
 #include "nonvolatile.h"
-#include "reset.h"
+#include "Reset.h"
 #include "nzs.h"
 #include "ftoa.h"
 #include "board.h"
