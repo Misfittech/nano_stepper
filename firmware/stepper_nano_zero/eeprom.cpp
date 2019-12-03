@@ -64,7 +64,7 @@ static eepromData_t EEPROMCache;
 static int32_t NextPageWrite=-1;
 
 //we need to reserve two pages for EEPROM
-__attribute__((__aligned__(FLASH_ROW_SIZE))) const uint8_t NVM_eeprom[EEPROM_SIZE]={0xFFF};
+__attribute__((__aligned__(FLASH_ROW_SIZE))) const uint8_t NVM_eeprom[EEPROM_SIZE]={0xFF};
 
 
 static uint16_t checksum(uint8_t *ptrData, uint32_t nBytes)
@@ -307,6 +307,3 @@ eepromError_t eepromFlush(void) //flush the cache to flash memory
    }
    return EEPROM_OK;
 }
-
-
-
