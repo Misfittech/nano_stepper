@@ -355,7 +355,7 @@ typedef enum {
 
 
 //Here are some useful macros
-#define DIVIDE_WITH_ROUND(x,y)  ((x+y/2)/y)
+#define DIVIDE_WITH_ROUND(x,y)  (((x)+(y)/2)/(y))
 
 
 #define GPIO_LOW(pin) {PORT->Group[g_APinDescription[(pin)].ulPort].OUTCLR.reg = (1ul << g_APinDescription[(pin)].ulPin);}
