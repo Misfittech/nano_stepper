@@ -238,6 +238,7 @@ typedef enum {
 #ifdef MECHADUINO_HARDWARE
 #warning "Compiling source for Mechaduino NOT NZS"
 #define DISABLE_LCD
+#undef  Serial5
 #define Serial5 Serial 
 #else
 #define SerialUSB Serial
