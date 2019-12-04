@@ -10,12 +10,12 @@ If you want to support the work on the firmware and hardware consider buying har
 # How to Install 
 [Hardware install and manual](https://github.com/Misfittech/nano_stepper/raw/master/documentation/Smart%20Stepper%20Manual.pdf)
 
-[Arduino install] (http://misfittech.net/blog/arduino-package-install/) for building firmware
+[Arduino install](http://misfittech.net/blog/arduino-package-install/) for building firmware
 
-[Further Details and to purchase Hardware] (http://misfittech.net/smart-steppers/)
+[Further Details and to purchase Hardware](http://misfittech.net/smart-steppers/)
 
 # Google groups forum
-[Google groups forum] (https://groups.google.com/forum/#!forum/smart-stepper)
+[Google groups forum](https://groups.google.com/forum/#!forum/smart-stepper)
 
 
 # Command List
