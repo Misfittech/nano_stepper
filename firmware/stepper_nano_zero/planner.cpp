@@ -162,8 +162,12 @@ bool Planner::moveConstantVelocity(float finalAngle, float rpm)
 	//first determine if operation is in progress
 	if (PLANNER_NONE != currentMode)
 	{
+#ifndef MECHADUINO_HARDWARE
 		//we are in operation return false
 		SerialUSB.println("planner operational");
+#else
+    Serial5.println("planner operational");
+#endif
 		exitTC3CriticalSection(state);
 		return false;
 	}
@@ -185,7 +189,9 @@ bool Planner::moveConstantVelocity(float finalAngle, float rpm)
 
 	if (startAngle>endAngle)
 	{
+#ifndef MECHADUINO_HARDWARE
 		SerialUSB.println("reverse");
+#endif
 		tickIncrement=-tickIncrement;
 	}
 

@@ -631,7 +631,9 @@ void NZS::begin(void)
 
 	//start up the USB serial interface
 	//TODO check for power on USB before doing this...
+#ifndef MECHADUINO_HARDWARE
 	SerialUSB.begin(SERIAL_BAUD);
+#endif
 
 	//setup the serial port for syslog
 	Serial5.begin(SERIAL_BAUD);
@@ -648,7 +650,7 @@ void NZS::begin(void)
 	LOG("Power up!");
 	pinMode(PIN_USB_PWR, INPUT);
 
-
+#ifndef MECHADUINO_HARDWARE
 	if (digitalRead(PIN_USB_PWR))
 	{
 		//wait for USB serial port to come alive
@@ -665,6 +667,7 @@ void NZS::begin(void)
 	{
 		WARNING("USB Not connected");
 	}
+#endif
 
 	validateAndInitNVMParams();
 
@@ -701,9 +704,13 @@ void NZS::begin(void)
 		//todo we need to handle error on LCD and through command line
 		if (STEPCTRL_NO_POWER == stepCtrlError)
 		{
-
+#ifndef MECHADUINO_HARDWARE
 			SerialUSB.println("Appears that there is no Motor Power");
 			SerialUSB.println("Connect motor power!");
+#else
+      Serial5.println("Appears that there is no Motor Power");
+      Serial5.println("Connect motor power!");
+#endif
 #ifndef DISABLE_LCD
 			Lcd.lcdShow("Waiting", "MOTOR", "POWER");
 #endif
@@ -716,7 +723,11 @@ void NZS::begin(void)
 
 		if (STEPCTRL_NO_CAL == stepCtrlError)
 		{
+#ifndef MECHADUINO_HARDWARE
 			SerialUSB.println("You need to Calibrate");
+#else
+      Serial5.println("You need to Calibrate");
+#endif
 #ifndef DISABLE_LCD
 			Lcd.lcdShow("   NOT ", "Calibrated", " ");
 			delay(1000);
@@ -742,9 +753,15 @@ void NZS::begin(void)
 
 		if (STEPCTRL_NO_ENCODER == stepCtrlError)
 		{
+#ifndef MECHADUINO_HARDWARE
 			SerialUSB.println("AS5047D not working");
 			SerialUSB.println(" try disconnecting power from board for 15+mins");
 			SerialUSB.println(" you might have to short out power pins to ground");
+#else
+      Serial5.println("AS5047D not working");
+      Serial5.println(" try disconnecting power from board for 15+mins");
+      Serial5.println(" you might have to short out power pins to ground");
+#endif
 #ifndef DISABLE_LCD
 			Lcd.lcdShow("Encoder", " Error!", " REBOOT");
 #endif
@@ -814,7 +831,9 @@ void printLocation(void)
 		n=stepperCtrl.getLocation(&loc);
 		i++;
 	}
+#ifndef MECHADUINO_HARDWARE
 	SerialUSB.write(buf,len);
+#endif
 
 	//hex write
 	// hex write is 29 bytes per tick, @ 6khz this 174000 baud

@@ -736,8 +736,11 @@ Angle StepperCtrl::sampleMeanEncoder(int32_t numSamples)
 		x=(((int32_t)encoder.readEncoderAngle())*4);
 		if (encoder.getError())
 		{
-
+#ifndef MECHADUINO_HARDWARE
 			SerialUSB.println("AS5047 Error");
+#else
+      Serial5.print("AS5047 Error");
+#endif
 			delay(1000);
 			return 0;
 		}
@@ -986,7 +989,9 @@ void StepperCtrl::PrintData(void)
 	char s[128];
 	bool state=enterCriticalSection();
 	sprintf(s, "%u,%u,%u", (uint32_t)numSteps,(uint32_t)getDesiredAngle(),(uint32_t)getCurrentAngle());
+#ifndef MECHADUINO_HARDWARE
 	SerialUSB.println(s);
+#endif
 	exitCriticalSection(state);
 }
 //this is the velocity PID feedback loop

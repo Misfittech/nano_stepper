@@ -196,7 +196,7 @@ static inline const char * __file__( const char *filename ) {
 #endif
 
 
-void SysLogInit(Uart *ptrSerialObj, eLogLevel LevelToWrite);
+void SysLogInit(Stream *ptrSerialObj, eLogLevel LevelToWrite);
 int SysLogDisable(void);
 int SysLogEnable(void);
 int SysLogIsEnabled(void);

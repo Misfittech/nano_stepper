@@ -46,7 +46,7 @@
 
 #define NEW_LINE "\n\r"
 
-Uart *ptrSerial=NULL;
+Stream *ptrSerial=NULL;
 eLogLevel SyslogLevelToWrite;
 
 bool DebugUART=false;
@@ -93,14 +93,16 @@ void SysLogPuts(const char *ptrStr)
 	{
 		ptrSerial->write(ptrStr);
 	}
+#ifndef MECHADUINO_HARDWARE 
 	if (DebugUART)
 	{
 		SerialUSB.write(ptrStr);
 	}
+#endif
 }
 
 int SysLogInitDone=0;
-void SysLogInit(Uart *ptrSerialObj, eLogLevel LevelToWrite)
+void SysLogInit(Stream *ptrSerialObj, eLogLevel LevelToWrite)
 {
 	ptrSerial=ptrSerialObj;
 	SyslogLevelToWrite=LevelToWrite;
@@ -239,4 +241,3 @@ void SysLog(eLogLevel priorty, const char *fmt, ...)
     SysLog_Enabled=previousState;
     return;
 }
-

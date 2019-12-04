@@ -1077,9 +1077,11 @@ static int move_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 		y=pos;
 		if (y>f) a=-a;
 
+#ifndef MECHADUINO_HARDWARE
 		SerialUSB.println(f);
 		SerialUSB.println(y);
 		SerialUSB.println(a);
+#endif
 
 		while (abs(y-f)>(2*abs(a)))
 		{
@@ -1499,7 +1501,7 @@ static int testcal_cmd(sCmdUart *ptrUart,int argc, char * argv[])
 }
 
 
-
+#ifndef MECHADUINO_HARDWARE
 
 uint8_t kbhit(void)
 {
@@ -1515,7 +1517,7 @@ uint8_t putch(char data)
 	return SerialUSB.write((uint8_t)data);
 }
 
-
+#endif
 uint8_t kbhit_hw(void)
 {
 	return Serial5.available();
@@ -1549,8 +1551,13 @@ uint8_t putch_step_dir(char data)
 
 void commandsInit(void)
 {
-	CommandInit(&UsbUart, kbhit, getChar, putch ,NULL); //set up the UART structure
-
+	
+#ifndef MECHADUINO_HARDWARE
+  CommandInit(&UsbUart, kbhit, getChar, putch ,NULL); //set up the UART structure
+  SerialUSB.print("\n\rPower Up\n\r");
+  SerialUSB.print(COMMANDS_PROMPT);
+#endif
+	
 	CommandInit(&HostUart, kbhit_step_dir, getChar_step_dir, putch_step_dir ,NULL); //set up the UART structure for step and dir pins
 
 #ifdef CMD_SERIAL_PORT
@@ -1559,8 +1566,6 @@ void commandsInit(void)
 	Serial5.print(COMMANDS_PROMPT);
 #endif
 
-	SerialUSB.print("\n\rPower Up\n\r");
-	SerialUSB.print(COMMANDS_PROMPT);
 }
 
 int commandsProcess(void)
@@ -1579,5 +1584,11 @@ int commandsProcess(void)
 #ifdef CMD_SERIAL_PORT
 	CommandProcess(&SerialUart,Cmds,' ',COMMANDS_PROMPT);
 #endif
-	return CommandProcess(&UsbUart,Cmds,' ',COMMANDS_PROMPT);
+
+#ifndef MECHADUINO_HARDWARE
+if (SerialUSB.dtr())
+  {
+    return CommandProcess(&UsbUart,Cmds,' ',COMMANDS_PROMPT);
+  }
+#endif
 }
