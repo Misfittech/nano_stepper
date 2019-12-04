@@ -8,11 +8,14 @@ If you want to support the work on the firmware and hardware consider buying har
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=4JAEK4G24W2U4)
 
 # How to Install 
-[Hardware install](http://misfittech.net/2016/11/29/installing-the-nano-zero-stepper/)
+[Hardware install and manual](https://github.com/Misfittech/nano_stepper/raw/master/documentation/Smart%20Stepper%20Manual.pdf)
 
-[Arduino install] (http://misfittech.net/2016/07/27/arduino_install/) for building firmware
+[Arduino install] (http://misfittech.net/blog/arduino-package-install/) for building firmware
 
-[Further Details and to purchase Hardware] (http://misfittech.net/product/nano-zero-stepper/)
+[Further Details and to purchase Hardware] (http://misfittech.net/smart-steppers/)
+
+# Google groups forum
+[Google groups forum] (https://groups.google.com/forum/#!forum/smart-stepper)
 
 
 # Command List
