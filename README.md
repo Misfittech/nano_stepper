@@ -151,12 +151,12 @@ Allows setting of pin for current limited enable for homing. This triggers a cur
 Currently unused.
 
 ### home
-Tells the motion controller to move motor until the home switch (enable pin) is pulled low. (Only on boards 3/21/2017 or newer) (Must be enabled in firmware). __EXPERIMENTAL USE WITH CAUTION__
+Tells the motion controller to move motor until the home switch (enable pin) is pulled low. (Only on boards 3/21/2017 or newer) (Must be enabled in firmware).
 For example:
 ~~~~
 :>home 360 0.5
 ~~~~
-Will move up to 360 degrees at 0.5 RPM 
+Will move up to 360 degrees at 0.5 RPM. __EXPERIMENTAL USE WITH CAUTION__
 
 ### pinread
 Displays the binary states of all pins (Step, Dir, Enable, Error, A3, TX, RX)
