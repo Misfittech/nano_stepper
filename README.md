@@ -1,7 +1,7 @@
 # Smart Stepper (also known as the nano zero stepper)
 Firmware to turn a stepper motor into servo motor: see http://misfittech.net for hardware! 
 
-If you have a MKS Servo42, this firmware is not fully tested. MKS has taken this firmware but has not provided source back and hardware designs back to the community. Test submissions are appreciated. Test at you own RISK!
+If you have a MKS Servo42, this firmware is not fully tested. MKS has taken this firmware but has not provided source back and hardware designs back to the community. Test submissions are appreciated. **Strong** __Test at you own RISK!__
 
 If you want to support the work on the firmware and hardware consider buying hardware from www.misfittech.net or buying me a beer using the donation button. 
 
@@ -77,16 +77,18 @@ This command sets which direction the motor will rotate when direction pin is pu
 ### errorlimit
 Gets set the maximum number of degrees of error that is acceptable, any posistioning error about the error limit will assert the error pin, when error pin is set as error output. 
 For example:
+~~~~
 :>errorlimit 1.8 
+~~~~
 Will set the error limit to 1.8 degrees. 
 
 ### ctrlmode
 Gets/Sets the feedback controller mode of operation. The command takes an integer from 0 through 4 to set the control mode per table below:
-Controller off - 	0  -- this is not currently used
-Open-Loop - 	1  -- this is open loop with no feedback
-Simple PID -   2  -- simple positional PID, which is factory default 
-Positional PID - 3 -- current based PID mode, requires tuning for your machine
-Velocity PID - 4 -- velocity based PID, requires tuning for your machine and speed range
+* Controller off - 	0  -- this is not currently used
+* Open-Loop - 	1  -- this is open loop with no feedback
+* Simple PID -   2  -- simple positional PID, which is factory default 
+* Positional PID - 3 -- current based PID mode, requires tuning for your machine
+* Velocity PID - 4 -- velocity based PID, requires tuning for your machine and speed range
 
 If you are unsure what you are doing leave unit in the Simple PID mode of operation. 
 
@@ -140,18 +142,20 @@ Overwrites the current shaft angle in the motion planner.
 Forces the smart stepper to reboot
 
 ### homecurrent
-If using built in homing routine (command "home") this will specify the amount of current applied when motor is moving during homing operation when homepin is logic active. EXPERIMENTAL USE WITH CAUTION
+If using built in homing routine (command "home") this will specify the amount of current applied when motor is moving during homing operation when homepin is logic active. **Strong** __EXPERIMENTAL USE WITH CAUTION__
 
 ### homepin
-Allows setting of pin for current limited enable for homing. This triggers a current drop during homing movements. Current set using command "homecurrent". This pin is pulled low to activate. EXPERIMENTAL USE WITH CAUTION
+Allows setting of pin for current limited enable for homing. This triggers a current drop during homing movements. Current set using command "homecurrent". This pin is pulled low to activate. **Strong** __EXPERIMENTAL USE WITH CAUTION__
 
 ### homeangledelay
 Currently unused.
 
 ### home
-Tells the motion controller to move motor until the home switch (enable pin) is pulled low. (Only on boards 3/21/2017 or newer) (Must be enabled in firmware). EXPERIMENTAL USE WITH CAUTION
+Tells the motion controller to move motor until the home switch (enable pin) is pulled low. (Only on boards 3/21/2017 or newer) (Must be enabled in firmware). **Strong** __EXPERIMENTAL USE WITH CAUTION__
 For example:
+~~~~
 :>home 360 0.5
+~~~~
 Will move up to 360 degrees at 0.5 RPM 
 
 ### pinread
@@ -160,24 +164,26 @@ Displays the binary states of all pins (Step, Dir, Enable, Error, A3, TX, RX)
 ### errorpinmode
 Sets or displays the error pin mode. Allows someone to swap usage of the error pin as an enable pin on older boards. (Not compiled for use on boards 3/21/2017 or newer since they have separate enable and error pins) (Must be enabled in firmware)
 Modes are: 
-"0" - Enable mode, active high (digital input).
-"1" - Enable mode, active low (digital input).
-"2" - Error mode, active low (digital output). Active level is reached when there is an angle error.
-"3" - Error mode, bi-directional, (digital input/output open collector). (Not currently used).
+* "0" - Enable mode, active high (digital input).
+* "1" - Enable mode, active low (digital input).
+* "2" - Error mode, active low (digital output). Active level is reached when there is an angle error.
+* "3" - Error mode, bi-directional, (digital input/output open collector). (Not currently used).
 
 ### errorpin
 Sets or displays the binary state of the enable pin. Acceptable values are 0 or 1
 For example:
+~~~~
 :>errorpin 1
+~~~~
 Will set the error pin on the terminal block to output a logic high when the error level is reached
 
 ### enablepinmode
 Sets or displays the enable pin mode. Allows someone to swap usage of the enable pin as an error pin on older boards. (Only on boards 3/21/2017 or newer since they have separate enable and error pins) (Must be enabled in firmware)
 Modes are: 
-"0" - Enable mode, active high (digital input).
-"1" - Enable mode, active low (digital input).
-"2" - Error mode, active low (digital output). Active level is reached when there is an angle error.
-"3" - Error mode, bi-directional, (digital input/output open collector). (Not currently used).
+* "0" - Enable mode, active high (digital input).
+* "1" - Enable mode, active low (digital input).
+* "2" - Error mode, active low (digital output). Active level is reached when there is an angle error.
+* "3" - Error mode, bi-directional, (digital input/output open collector). (Not currently used).
 
 ### geterror
 Displays the current motor shaft error in degrees.
