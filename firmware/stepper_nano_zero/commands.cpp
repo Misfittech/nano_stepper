@@ -106,10 +106,10 @@ CMD_STR(stop, "stops the motion planner");
 CMD_STR(setzero, "set the reference angle to zero");
 CMD_STR(data, "enables/disables binary data output");
 CMD_STR(looptime, "returns the control loop processing time");
-CMD_STR(eepromerror, "returns error in degreees from eeprom at power up realtive to current encoder");
+CMD_STR(eepromerror, "returns error in degreees from eeprom at power up relative to current encoder");
 CMD_STR(eepromloc, "returns location in degreees eeprom on power up");
 CMD_STR(eepromwrite, "forces write of location to eeprom");
-CMD_STR(eepromsetloc, "sets the device angle based on EEPROM last reading, compenstates for error")
+CMD_STR(eepromsetloc, "sets the device angle based on EEPROM last reading, compensates for error")
 CMD_STR(setpos, "sets the current angle in degrees");
 CMD_STR(reboot, "reboots the unit");
 CMD_STR(homepin, "sets the pin used to drop to homing current");
